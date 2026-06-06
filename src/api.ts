@@ -1,41 +1,113 @@
 import { Router } from "express";
 import { prisma } from "./db";
-import { getUpcomingMeetings } from "./zoom";
-import { MeetingStatus } from "@prisma/client";
+import { getUpcomingMeetings, getZoomToken } from "./zoom";
+import axios from "axios";
 
 const router = Router();
 
+// ── Helper: seed MeetingSessions from Zoom API for a given meeting ────────────
+// Called when we fetch upcoming meetings and find a recurring meeting that has
+// no sessions in DB yet (i.e., meeting.created webhook was never received).
+export async function seedSessionsForMeeting(
+  meetingId: string,
+  topic: string,
+  type: number,
+  joinUrl: string,
+  timezone?: string
+) {
+  await prisma.meeting.upsert({
+    where: { id: meetingId },
+    create: { id: meetingId, topic, type, joinUrl, timezone: timezone ?? null },
+    update: { topic, joinUrl },
+  });
+
+  if (type !== 8) return; // only recurring needs occurrence seeding
+
+  try {
+    const token = await getZoomToken();
+    const detail = await axios.get(
+      `https://api.zoom.us/v2/meetings/${meetingId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { show_previous_occurrences: false },
+      }
+    );
+
+    const occurrences: any[] = detail.data.occurrences ?? [];
+    for (const occ of occurrences) {
+      if (occ.status === "deleted") continue;
+      await prisma.meetingSession.upsert({
+        where: {
+          meetingId_occurrenceId: {
+            meetingId,
+            occurrenceId: occ.occurrence_id,
+          },
+        },
+        create: {
+          meetingId,
+          occurrenceId: occ.occurrence_id,
+          scheduledStart: new Date(occ.start_time),
+          duration: occ.duration,
+          status: "SCHEDULED",
+        },
+        update: { duration: occ.duration },
+      });
+    }
+    console.log(
+      `[SEED] Seeded ${occurrences.length} sessions for meeting ${meetingId}`
+    );
+  } catch (err: any) {
+    console.error(
+      `[SEED ERROR] meeting ${meetingId}:`,
+      err.response?.data ?? err.message
+    );
+  }
+}
+
 // ── GET /api/meetings/upcoming ────────────────────────────────────────────────
-// Returns all upcoming meeting occurrences with correct LIVE status per occurrence.
 router.get("/meetings/upcoming", async (req, res) => {
   try {
     const occurrences = await getUpcomingMeetings();
 
-    // Fetch all LIVE / ENDED meetings from DB in one query
-    const dbMeetings = await prisma.meeting.findMany({
+    // Ensure all meetings/sessions exist in DB (seed if not)
+    const seenMeetingIds = new Set<string>();
+    for (const occ of occurrences) {
+      if (seenMeetingIds.has(occ.id)) continue;
+      seenMeetingIds.add(occ.id);
+
+      const existingMeeting = await prisma.meeting.findUnique({
+        where: { id: occ.id },
+        include: { sessions: { where: { occurrenceId: { not: null } }, take: 1 } },
+      });
+
+      if (!existingMeeting || existingMeeting.sessions.length === 0) {
+        await seedSessionsForMeeting(
+          occ.id,
+          occ.topic,
+          occ.type,
+          occ.joinUrl,
+          undefined
+        );
+      }
+    }
+
+    // Fetch all LIVE/ENDED sessions from DB for status overlay
+    const liveSessions = await prisma.meetingSession.findMany({
       where: { status: { in: ["LIVE", "ENDED"] } },
-      select: { id: true, uuid: true, status: true, occurrenceId: true },
+      select: { meetingId: true, occurrenceId: true, status: true },
     });
 
-    // Build lookup: occurrenceId → status (for recurring) or id → status (for one-time)
-    const liveByOccurrenceId = new Map(
-      dbMeetings
-        .filter((m) => m.occurrenceId)
-        .map((m) => [m.occurrenceId!, m.status])
-    );
-    const liveById = new Map(
-      dbMeetings
-        .filter((m) => !m.occurrenceId)
-        .map((m) => [m.id, m.status])
+    // Build lookup: "meetingId:occurrenceId" → status
+    const statusMap = new Map(
+      liveSessions.map((s) => [
+        `${s.meetingId}:${s.occurrenceId ?? ""}`,
+        s.status,
+      ])
     );
 
     const result = occurrences.map((occ) => {
-      let status: MeetingStatus = "SCHEDULED";
-      if (occ.occurrenceId && liveByOccurrenceId.has(occ.occurrenceId)) {
-        status = liveByOccurrenceId.get(occ.occurrenceId)!;
-      } else if (!occ.occurrenceId && liveById.has(occ.id)) {
-        status = liveById.get(occ.id)!;
-      }
+      const key = `${occ.id}:${occ.occurrenceId ?? ""}`;
+      const dbStatus = statusMap.get(key);
       return {
         id: occ.id,
         uuid: occ.uuid,
@@ -44,7 +116,7 @@ router.get("/meetings/upcoming", async (req, res) => {
         startTime: occ.startTime,
         duration: occ.duration,
         joinUrl: occ.joinUrl,
-        status,
+        status: dbStatus ?? "SCHEDULED",
       };
     });
 
@@ -56,45 +128,52 @@ router.get("/meetings/upcoming", async (req, res) => {
 });
 
 // ── GET /api/meetings/:meetingId/attendance ───────────────────────────────────
+// ?occurrenceId=1780727400000   — recurring meeting occurrence
+// (no param)                   — one-time meeting (uses most recent/live session)
 router.get("/meetings/:meetingId/attendance", async (req, res) => {
   const { meetingId } = req.params;
+  const occurrenceId = req.query.occurrenceId as string | undefined;
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    include: {
-      registrants: true,
-      participants: true,
-    },
+  // Fetch registrants (registered for the whole series)
+  const registrants = await prisma.registrant.findMany({
+    where: { meetingId },
   });
 
-  if (!meeting) {
-    // Meeting hasn't received any webhooks yet — return empty state
-    return res.json({
-      meetingId,
-      status: "SCHEDULED",
-      startTime: null,
-      endTime: null,
-      totalRegistered: 0,
-      totalJoined: 0,
-      currentlyInMeeting: 0,
-      attendance: [],
-      guests: [],
+  // Find the relevant MeetingSession
+  let session: Awaited<ReturnType<typeof prisma.meetingSession.findFirst>> = null;
+
+  if (occurrenceId) {
+    // Recurring: look up by occurrenceId
+    session = await prisma.meetingSession.findFirst({
+      where: { meetingId, occurrenceId },
     });
+  } else {
+    // One-time: use LIVE session first, then most recent ENDED
+    session = await prisma.meetingSession.findFirst({
+      where: { meetingId, status: "LIVE" },
+    });
+    if (!session) {
+      session = await prisma.meetingSession.findFirst({
+        where: { meetingId },
+        orderBy: { scheduledStart: "desc" },
+      });
+    }
   }
 
-  const { registrants, participants } = meeting;
+  // Participants for this session only
+  const participants = session
+    ? await prisma.participant.findMany({ where: { sessionId: session.id } })
+    : [];
 
-  // Build participant lookup by email
   const participantByEmail = new Map(participants.map((p) => [p.email, p]));
 
-  // Merge registrants with participant data
   const attendance = registrants.map((reg) => {
     const joined = participantByEmail.get(reg.email);
     return {
       email: reg.email,
       name: reg.name,
       status: joined ? joined.status : "NOT_JOINED",
-      sixABonus: reg.sixABonus || "-",
+      sixABonus: reg.sixABonus || "",
       joinTime: joined?.joinTime ?? null,
       leaveTime: joined?.leaveTime ?? null,
       duration: joined?.duration ?? 0,
@@ -102,7 +181,6 @@ router.get("/meetings/:meetingId/attendance", async (req, res) => {
     };
   });
 
-  // Guests = participants not in registrant list
   const registrantEmails = new Set(registrants.map((r) => r.email));
   const guests = participants
     .filter((p) => !registrantEmails.has(p.email))
@@ -118,10 +196,12 @@ router.get("/meetings/:meetingId/attendance", async (req, res) => {
     }));
 
   res.json({
-    meetingId: meeting.id,
-    status: meeting.status,
-    startTime: meeting.startTime,
-    endTime: meeting.endTime,
+    meetingId,
+    occurrenceId: occurrenceId ?? null,
+    sessionId: session?.id ?? null,
+    status: session?.status ?? "SCHEDULED",
+    startTime: session?.scheduledStart ?? null,
+    endTime: session?.endTime ?? null,
     totalRegistered: registrants.length,
     totalJoined: participants.length,
     currentlyInMeeting: participants.filter((p) => p.status === "IN_MEETING")

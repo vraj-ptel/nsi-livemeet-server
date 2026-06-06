@@ -74,18 +74,7 @@ io.on("connection", (socket) => {
     socket.join(`meeting-${meetingId}`);
     console.log(`Socket ${socket.id} → room meeting-${meetingId}`);
 
-    // Send current DB state immediately on subscribe
-    const meeting = await prisma.meeting.findUnique({
-      where: { id: meetingId },
-      include: { participants: true },
-    });
 
-    if (meeting) {
-      socket.emit("meeting-state", {
-        status: meeting.status,
-        participants: meeting.participants,
-      });
-    }
   });
 
   socket.on("disconnect", () => {
@@ -108,3 +97,4 @@ process.on("SIGINT", async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+ 
