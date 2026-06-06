@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  UNKNOWN
+}
+
+enum ParticipantStatus {
+  IN_MEETING
+  LEFT
+}
+
+// One row per occurrence of a meeting (recurring meetings get one row per occurrence)
+model Meeting {
+  id           String        @id // Zoom parent meeting ID (as string)
+  uuid         String        @unique // Occurrence UUID — used to detect LIVE status
+  occurrenceId String? // Zoom occurrence_id for recurring meetings
+  topic        String
+  startTime    DateTime
+  endTime      DateTime?
+  duration     Int // minutes
+  timezone     String?
+  joinUrl      String?
+  status       MeetingStatus @default(SCHEDULED)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  registrants  Registrant[]
+  participants Participant[]
+}
+
+// One row per user who registered for a meeting
+model Registrant {
+  id        String   @id @default(cuid())
+  zoomId    String
+  meetingId String
+  email     String
+  name      String
+  firstName String
+  lastName  String
+  sixABonus String   @default("")
+  joinUrl   String?
+  status    String   @default("approved")
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+
+  @@unique([meetingId, email])
+}
+
+// One row per participant who actually joined the meeting
+model Participant {
+  id          String            @id @default(cuid())
+  meetingId   String
+  email       String
+  name        String
+  userId      String?
+  status      ParticipantStatus @default(IN_MEETING)
+  joinTime    DateTime
+  leaveTime   DateTime?
+  duration    Int               @default(0) // total ms across all sessions
+  joinHistory Json              @default("[]") // [{joinTime, leaveTime}]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+
+  @@unique([meetingId, email])
+}

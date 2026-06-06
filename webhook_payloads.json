@@ -1,0 +1,926 @@
+[
+  {
+    "receivedAt": "2026-06-05T10:51:46.900Z",
+    "event": "meeting.registration_created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "ZTVo5BuuQp+l+9LGsGYriQ==",
+        "id": 83926307981,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "My Meeting live testing",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "registrant": {
+          "id": "Xk5WpRIeQAqGSaJCtgNfiA",
+          "first_name": "vraj",
+          "last_name": "zalavadiya",
+          "email": "vrajzala23@gmail.com",
+          "address": "",
+          "city": "",
+          "country": "",
+          "zip": "",
+          "state": "",
+          "phone": "",
+          "industry": "",
+          "org": "",
+          "job_title": "",
+          "purchasing_time_frame": "",
+          "role_in_purchase_process": "",
+          "no_of_employees": "",
+          "comments": "",
+          "custom_questions": [
+            {
+              "title": "6a bonus",
+              "value": "a sir"
+            }
+          ],
+          "status": "approved",
+          "join_url": "https://us06web.zoom.us/w/83926307981?tk=AyGz7-a21ehUVW4AAY6ihm1_PJ80_ECumEfiHvUdAx0.DQkAAAATimXUjRZYazVXcFJJZVFBcUdTYUpDdGdOZmlBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=g3HoWTNYmbmGOWCN3fyDnkDRegR8vs.1"
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:31:27.864Z",
+    "event": "meeting.deleted",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "operator": "teamnsicontent@gmail.com",
+      "operator_id": "O_7JcnsuSjW23ZVbGA8YWg",
+      "operation": "all",
+      "object": {
+        "uuid": "ZTVo5BuuQp+l+9LGsGYriQ==",
+        "id": 83926307981,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "My Meeting live testing",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:32:34.288Z",
+    "event": "meeting.created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "operator": "teamnsicontent@gmail.com",
+      "operator_id": "O_7JcnsuSjW23ZVbGA8YWg",
+      "operation": "all",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "id": 85897915077,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "live data testing meeting ",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "join_url": "https://us06web.zoom.us/j/85897915077?pwd=QqG16zK45F7pN3bwKvk1a5kOQWv9Cp.1",
+        "password": "468985",
+        "occurrences": [
+          {
+            "occurrence_id": "1780659000000",
+            "start_time": "2026-06-05T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780745400000",
+            "start_time": "2026-06-06T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780831800000",
+            "start_time": "2026-06-07T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780918200000",
+            "start_time": "2026-06-08T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781004600000",
+            "start_time": "2026-06-09T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781091000000",
+            "start_time": "2026-06-10T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781177400000",
+            "start_time": "2026-06-11T11:30:00Z",
+            "duration": 60,
+            "status": "available"
+          }
+        ],
+        "settings": {
+          "join_before_host": true,
+          "jbh_time": 0,
+          "use_pmi": false,
+          "alternative_hosts": "",
+          "meeting_invitees": []
+        },
+        "recurrence": {
+          "type": 1,
+          "repeat_interval": 1,
+          "end_date_time": "2026-06-11T18:29:00Z"
+        },
+        "creation_source": "web_portal"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:35:02.735Z",
+    "event": "meeting.started",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta",
+        "topic": "live data testing meeting ",
+        "id": "85897915077",
+        "type": 8,
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "host_email": "teamnsicontent@gmail.com"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:35:03.986Z",
+    "event": "meeting.participant_role_changed",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "new_role": "host",
+          "date_time": "2026-06-05T11:35:00Z",
+          "user_id": "16778240",
+          "user_name": "NSI Team",
+          "registrant_id": "",
+          "old_role": "host",
+          "participant_user_id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "email": "teamnsicontent@gmail.com",
+          "participant_uuid": "517835CA-E828-3082-2F90-DAF2359D8690"
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:35:04.186Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "public_ip": "134.224.130.244",
+          "user_id": "16778240",
+          "user_name": "NSI Team",
+          "participant_user_id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "join_time": "2026-06-05T11:35:01Z",
+          "email": "teamnsicontent@gmail.com",
+          "participant_uuid": "517835CA-E828-3082-2F90-DAF2359D8690"
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:39:18.124Z",
+    "event": "meeting.registration_created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "id": 85897915077,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "live data testing meeting",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "registrant": {
+          "id": "VoocpzXeRJK7tyR-FpLfVQ",
+          "first_name": "tamp",
+          "last_name": "patel",
+          "email": "tampa121512@gmail.com",
+          "address": "",
+          "city": "",
+          "country": "",
+          "zip": "",
+          "state": "",
+          "phone": "",
+          "industry": "",
+          "org": "",
+          "job_title": "",
+          "purchasing_time_frame": "",
+          "role_in_purchase_process": "",
+          "no_of_employees": "",
+          "comments": "",
+          "custom_questions": [
+            {
+              "title": "6A2-3 & above",
+              "value": "NS sir"
+            }
+          ],
+          "status": "approved",
+          "join_url": "https://us06web.zoom.us/w/85897915077?tk=B2tS1Ym4fc7-GFpwkEy5Ai0XK1kLv1IvEjP1rKPIVEA.DQkAAAAT_-oqxRZWb29jcHpYZVJKSzd0eVItRnBMZlZRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=QqG16zK45F7pN3bwKvk1a5kOQWv9Cp.1"
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T11:40:55.425Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "public_ip": "134.224.130.244",
+          "user_id": "16781312",
+          "user_name": "tamp patel",
+          "registrant_id": "VoocpzXeRJK7tyR-FpLfVQ",
+          "participant_user_id": "",
+          "id": "",
+          "join_time": "2026-06-05T11:40:53Z",
+          "email": "tampa121512@gmail.com",
+          "participant_uuid": "59B681E7-3F4A-4A49-A1A1-D18B9CF49C86"
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:04:20.297Z",
+    "event": "meeting.sharing_ended",
+    "payload": {
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "id": "",
+          "user_id": "16781312",
+          "user_name": "tamp patel",
+          "sharing_details": {
+            "link_source": "",
+            "date_time": "2026-06-05T12:04:18Z",
+            "file_link": "",
+            "source": "",
+            "content": "unknown"
+          }
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      },
+      "account_id": "54FoHe86RBytPFxtzr9jfA"
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:04:20.753Z",
+    "event": "meeting.participant_left",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "leave_time": "2026-06-05T12:04:18Z",
+          "public_ip": "134.224.130.244",
+          "user_id": "16781312",
+          "user_name": "tamp patel",
+          "registrant_id": "VoocpzXeRJK7tyR-FpLfVQ",
+          "participant_user_id": "",
+          "id": "",
+          "leave_reason": "left the meeting. Reason : left the meeting",
+          "email": "tampa121512@gmail.com",
+          "private_ip": "10.174.133.86",
+          "participant_uuid": "59B681E7-3F4A-4A49-A1A1-D18B9CF49C86"
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:05:02.196Z",
+    "event": "meeting.sharing_ended",
+    "payload": {
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "user_id": "16778240",
+          "user_name": "NSI Team",
+          "sharing_details": {
+            "link_source": "",
+            "date_time": "2026-06-05T12:05:00Z",
+            "file_link": "",
+            "source": "",
+            "content": "unknown"
+          }
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      },
+      "account_id": "54FoHe86RBytPFxtzr9jfA"
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:05:02.954Z",
+    "event": "meeting.participant_left",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "participant": {
+          "leave_time": "2026-06-05T12:05:00Z",
+          "public_ip": "134.224.130.244",
+          "user_id": "16778240",
+          "user_name": "NSI Team",
+          "registrant_id": "",
+          "participant_user_id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "leave_reason": "left the meeting. Reason : Host ended the meeting.",
+          "email": "teamnsicontent@gmail.com",
+          "private_ip": "10.174.133.86",
+          "participant_uuid": "517835CA-E828-3082-2F90-DAF2359D8690"
+        },
+        "id": "85897915077",
+        "type": 8,
+        "topic": "live data testing meeting ",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:05:11.626Z",
+    "event": "meeting.deleted",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "operator": "teamnsicontent@gmail.com",
+      "operator_id": "O_7JcnsuSjW23ZVbGA8YWg",
+      "operation": "all",
+      "object": {
+        "uuid": "E9xnFGC7Q8igsQ7b4x4PJg==",
+        "id": 85897915077,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "live data testing meeting ",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:05:21.204Z",
+    "event": "meeting.ended",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "duration": 60,
+        "start_time": "2026-06-05T11:35:01Z",
+        "timezone": "Asia/Calcutta",
+        "end_time": "2026-06-05T12:05:01Z",
+        "topic": "live data testing meeting ",
+        "id": "85897915077",
+        "type": 8,
+        "uuid": "9tWTSBIATx+GFGxnfl5mEw==",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "host_email": "teamnsicontent@gmail.com"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:20:53.641Z",
+    "event": "meeting.created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "operator": "teamnsicontent@gmail.com",
+      "operator_id": "O_7JcnsuSjW23ZVbGA8YWg",
+      "operation": "all",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "id": 89210082903,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "testin live data meeting",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "join_url": "https://us06web.zoom.us/j/89210082903?pwd=1WDdS3AZbPoN2cbc44az8qs0bsu4cd.1",
+        "password": "351281",
+        "occurrences": [
+          {
+            "occurrence_id": "1780661700000",
+            "start_time": "2026-06-05T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780748100000",
+            "start_time": "2026-06-06T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780834500000",
+            "start_time": "2026-06-07T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1780920900000",
+            "start_time": "2026-06-08T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781007300000",
+            "start_time": "2026-06-09T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781093700000",
+            "start_time": "2026-06-10T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          },
+          {
+            "occurrence_id": "1781180100000",
+            "start_time": "2026-06-11T12:15:00Z",
+            "duration": 60,
+            "status": "available"
+          }
+        ],
+        "settings": {
+          "join_before_host": true,
+          "jbh_time": 0,
+          "use_pmi": false,
+          "alternative_hosts": "",
+          "meeting_invitees": []
+        },
+        "recurrence": {
+          "type": 1,
+          "repeat_interval": 1,
+          "end_date_time": "2026-06-11T18:29:00Z"
+        },
+        "creation_source": "web_portal"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:22:00.138Z",
+    "event": "meeting.registration_created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "id": 89210082903,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "testin live data meeting",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "registrant": {
+          "id": "H_3xuWhEQd6j8KkSoX7Ulw",
+          "first_name": "tamp",
+          "last_name": "patel",
+          "email": "tampa121512@gmail.com",
+          "address": "",
+          "city": "",
+          "country": "",
+          "zip": "",
+          "state": "",
+          "phone": "",
+          "industry": "",
+          "org": "",
+          "job_title": "",
+          "purchasing_time_frame": "",
+          "role_in_purchase_process": "",
+          "no_of_employees": "",
+          "comments": "",
+          "custom_questions": [
+            {
+              "title": "6A2-3 & above",
+              "value": "ns sir"
+            }
+          ],
+          "status": "approved",
+          "join_url": "https://us06web.zoom.us/w/89210082903?tk=YyVo47ImVOXQaMkTiLZKr2PYy1X7Q7sITBhgnPKgKl4.DQkAAAAUxVXWVxZIXzN4dVdoRVFkNmo4S2tTb1g3VWx3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=1WDdS3AZbPoN2cbc44az8qs0bsu4cd.1"
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:22:43.298Z",
+    "event": "meeting.participant_jbh_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta",
+        "topic": "testin live data meeting",
+        "id": "89210082903",
+        "type": 8,
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "participant": {
+          "user_name": "tamp patel",
+          "registrant_id": "H_3xuWhEQd6j8KkSoX7Ulw",
+          "id": ""
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:22:43.309Z",
+    "event": "meeting.started",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta",
+        "topic": "testin live data meeting",
+        "id": "89210082903",
+        "type": 8,
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "host_email": "teamnsicontent@gmail.com"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:22:45.221Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "public_ip": "134.224.130.71",
+          "user_id": "16778240",
+          "user_name": "tamp patel",
+          "registrant_id": "H_3xuWhEQd6j8KkSoX7Ulw",
+          "participant_user_id": "",
+          "id": "",
+          "join_time": "2026-06-05T12:22:42Z",
+          "email": "tampa121512@gmail.com",
+          "participant_uuid": "DC72F6EE-E39C-647C-745C-466AF18E6144"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:23:59.189Z",
+    "event": "meeting.registration_created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "id": 89210082903,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "testin live data meeting",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "registrant": {
+          "id": "fHCdV53mQ2upMiDWC-83Sw",
+          "first_name": "Patel ",
+          "last_name": "Rudra",
+          "email": "rsdp9999@gmail.com",
+          "address": "",
+          "city": "",
+          "country": "",
+          "zip": "",
+          "state": "",
+          "phone": "",
+          "industry": "",
+          "org": "",
+          "job_title": "",
+          "purchasing_time_frame": "",
+          "role_in_purchase_process": "",
+          "no_of_employees": "",
+          "comments": "",
+          "custom_questions": [
+            {
+              "title": "6A2-3 & above",
+              "value": "mansukh sir"
+            }
+          ],
+          "status": "approved",
+          "join_url": "https://us06web.zoom.us/w/89210082903?tk=7eBujVSc4e3IHUQPCaEf_1IrGQJfMSoRE_MacMqGkOE.DQkAAAAUxVXWVxZmSENkVjUzbVEydXBNaURXQy04M1N3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=1WDdS3AZbPoN2cbc44az8qs0bsu4cd.1"
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:24:01.911Z",
+    "event": "meeting.registration_created",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "id": 89210082903,
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "topic": "testin live data meeting",
+        "type": 8,
+        "start_time": "2026-06-11T18:29:00Z",
+        "duration": 60,
+        "timezone": "Asia/Calcutta",
+        "registrant": {
+          "id": "q-EFSsVoSnqQ0dH58vBqWA",
+          "first_name": "Mihir",
+          "last_name": "PATEL",
+          "email": "mihir262004@gmail.com",
+          "address": "",
+          "city": "",
+          "country": "",
+          "zip": "",
+          "state": "",
+          "phone": "",
+          "industry": "",
+          "org": "",
+          "job_title": "",
+          "purchasing_time_frame": "",
+          "role_in_purchase_process": "",
+          "no_of_employees": "",
+          "comments": "",
+          "custom_questions": [
+            {
+              "title": "6A2-3 & above",
+              "value": "ns sir"
+            }
+          ],
+          "status": "approved",
+          "join_url": "https://us06web.zoom.us/w/89210082903?tk=m48o_WAVlymfxrZgfUHmTzgp8OW_Qn0X_jDX35mwUBY.DQkAAAAUxVXWVxZxLUVGU3NWb1NucVEwZEg1OHZCcVdBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=1WDdS3AZbPoN2cbc44az8qs0bsu4cd.1"
+        }
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:24:13.390Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "public_ip": "134.224.130.2",
+          "user_id": "16780288",
+          "user_name": "Patel Rudra",
+          "registrant_id": "fHCdV53mQ2upMiDWC-83Sw",
+          "participant_user_id": "",
+          "id": "",
+          "join_time": "2026-06-05T12:24:10Z",
+          "email": "rsdp9999@gmail.com",
+          "participant_uuid": "A83E2092-8CF2-FB37-F5A8-8CE3EE70C7B2"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:24:15.421Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "public_ip": "134.224.130.2",
+          "user_id": "16781312",
+          "user_name": "Mihir PATEL",
+          "registrant_id": "q-EFSsVoSnqQ0dH58vBqWA",
+          "participant_user_id": "",
+          "id": "",
+          "join_time": "2026-06-05T12:24:12Z",
+          "email": "mihir262004@gmail.com",
+          "participant_uuid": "5E68D3CA-CB2C-40DB-6EDD-4A5A87465C0A"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:38:14.261Z",
+    "event": "meeting.participant_left",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "leave_time": "2026-06-05T12:38:11Z",
+          "public_ip": "134.224.130.2",
+          "user_id": "16781312",
+          "user_name": "Mihir PATEL",
+          "registrant_id": "q-EFSsVoSnqQ0dH58vBqWA",
+          "participant_user_id": "",
+          "id": "",
+          "leave_reason": "left the meeting. Reason : left the meeting with Unknown Failover Reason",
+          "email": "mihir262004@gmail.com",
+          "private_ip": "10.174.134.255",
+          "participant_uuid": "5E68D3CA-CB2C-40DB-6EDD-4A5A87465C0A"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:39:51.801Z",
+    "event": "meeting.participant_role_changed",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "new_role": "host",
+          "date_time": "2026-06-05T12:39:00Z",
+          "user_id": "16782336",
+          "user_name": "NSI Team",
+          "registrant_id": "",
+          "old_role": "host",
+          "participant_user_id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "email": "teamnsicontent@gmail.com",
+          "participant_uuid": "361B99D7-37D0-97B1-1873-363606C340BA"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T12:39:52.472Z",
+    "event": "meeting.participant_joined",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "public_ip": "134.224.130.71",
+          "user_id": "16782336",
+          "user_name": "NSI Team",
+          "participant_user_id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "id": "O_7JcnsuSjW23ZVbGA8YWg",
+          "join_time": "2026-06-05T12:39:49Z",
+          "email": "teamnsicontent@gmail.com",
+          "participant_uuid": "361B99D7-37D0-97B1-1873-363606C340BA"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T13:22:09.902Z",
+    "event": "meeting.sharing_ended",
+    "payload": {
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "id": "",
+          "user_id": "16780288",
+          "user_name": "Patel Rudra",
+          "sharing_details": {
+            "link_source": "",
+            "date_time": "2026-06-05T13:22:08Z",
+            "file_link": "",
+            "source": "",
+            "content": "unknown"
+          }
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      },
+      "account_id": "54FoHe86RBytPFxtzr9jfA"
+    }
+  },
+  {
+    "receivedAt": "2026-06-05T13:24:09.180Z",
+    "event": "meeting.participant_left",
+    "payload": {
+      "account_id": "54FoHe86RBytPFxtzr9jfA",
+      "object": {
+        "uuid": "g4XpuntkRiudQ9lDJi5aIQ==",
+        "participant": {
+          "leave_time": "2026-06-05T13:24:06Z",
+          "public_ip": "134.224.130.2",
+          "user_id": "16780288",
+          "user_name": "Patel Rudra",
+          "registrant_id": "fHCdV53mQ2upMiDWC-83Sw",
+          "participant_user_id": "",
+          "id": "",
+          "leave_reason": "left the meeting. Reason : left the meeting with Unknown Failover Reason",
+          "email": "rsdp9999@gmail.com",
+          "private_ip": "10.174.134.255",
+          "participant_uuid": "A83E2092-8CF2-FB37-F5A8-8CE3EE70C7B2"
+        },
+        "id": "89210082903",
+        "type": 8,
+        "topic": "testin live data meeting",
+        "host_id": "O_7JcnsuSjW23ZVbGA8YWg",
+        "duration": 60,
+        "start_time": "2026-06-05T12:22:42Z",
+        "timezone": "Asia/Calcutta"
+      }
+    }
+  }
+]
