@@ -33,7 +33,14 @@ function savePayload(event: string, payload: unknown) {
  */
 async function ensureMeeting(
   meetingId: string,
-  fields: { topic?: string; timezone?: string; type?: number; joinUrl?: string }
+  fields: {
+    topic?: string;
+    timezone?: string;
+    type?: number;
+    joinUrl?: string;
+    hostId?: string;
+    hostEmail?: string;
+  }
 ) {
   await prisma.meeting.upsert({
     where: { id: meetingId },
@@ -43,12 +50,28 @@ async function ensureMeeting(
       timezone: fields.timezone ?? null,
       type: fields.type ?? 2,
       joinUrl: fields.joinUrl ?? null,
+      hostId: fields.hostId ?? null,
+      hostEmail: fields.hostEmail ?? null,
     },
     update: {
       ...(fields.topic ? { topic: fields.topic } : {}),
       ...(fields.joinUrl ? { joinUrl: fields.joinUrl } : {}),
+      ...(fields.hostId ? { hostId: fields.hostId } : {}),
+      ...(fields.hostEmail ? { hostEmail: fields.hostEmail } : {}),
     },
   });
+}
+
+function isParticipantHost(
+  participant: Record<string, any>,
+  hostId?: string
+): boolean {
+  if (!hostId) return false;
+  const pid =
+    participant.participant_user_id ||
+    participant.id ||
+    participant.user_id;
+  return pid === hostId;
 }
 
 /**
@@ -105,6 +128,8 @@ export function createWebhookHandler(io: SocketIOServer) {
           timezone: obj.timezone,
           type: obj.type,
           joinUrl: obj.join_url,
+          hostId: obj.host_id,
+          hostEmail: obj.host_email,
         });
 
         const occurrences: any[] = obj.occurrences ?? [];
@@ -178,6 +203,8 @@ export function createWebhookHandler(io: SocketIOServer) {
           topic: obj.topic,
           timezone: obj.timezone,
           type: obj.type,
+          hostId: obj.host_id,
+          hostEmail: obj.host_email,
         });
 
         const actualStart = obj.start_time ? new Date(obj.start_time) : new Date();
@@ -259,6 +286,8 @@ export function createWebhookHandler(io: SocketIOServer) {
           timezone: obj.timezone,
           type: obj.type,
           joinUrl: obj.join_url,
+          hostId: obj.host_id,
+          hostEmail: obj.host_email,
         });
 
         await prisma.registrant.upsert({
@@ -288,11 +317,37 @@ export function createWebhookHandler(io: SocketIOServer) {
         break;
       }
 
+      // ── Participant role changed (host/co-host) ─────────────────────────────
+      case "meeting.participant_role_changed": {
+        const p = obj.participant ?? {};
+        const email: string = p.email || p.user_id || p.user_name;
+        const isHost = p.new_role === "host" || p.new_role === "co-host";
+
+        const session = await prisma.meetingSession.findFirst({
+          where: { uuid: meetingUuid },
+        });
+        if (session && email) {
+          await prisma.participant.updateMany({
+            where: { sessionId: session.id, email },
+            data: { isHost: p.new_role === "host" },
+          });
+        }
+        break;
+      }
+
       // ── Participant joined ────────────────────────────────────────────────────
       case "meeting.participant_joined": {
         const p = obj.participant ?? {};
         const email: string = p.email || p.user_id || p.user_name;
         const joinTime = new Date(p.join_time);
+        const hostFlag = isParticipantHost(p, obj.host_id);
+
+        if (obj.host_id || obj.host_email) {
+          await ensureMeeting(meetingId, {
+            hostId: obj.host_id,
+            hostEmail: obj.host_email,
+          });
+        }
 
         // Find the LIVE session for this meeting via uuid
         const session = await prisma.meetingSession.findFirst({
@@ -315,13 +370,16 @@ export function createWebhookHandler(io: SocketIOServer) {
           : [];
         history.push({ joinTime: joinTime.toISOString(), leaveTime: null });
 
+        const zoomUserId = p.participant_user_id || p.id || p.user_id || null;
+
         await prisma.participant.upsert({
           where: { sessionId_email: { sessionId: session.id, email } },
           create: {
             sessionId: session.id,
             email,
             name: p.user_name ?? "",
-            userId: p.user_id ?? null,
+            userId: zoomUserId,
+            isHost: hostFlag,
             status: "IN_MEETING",
             joinTime,
             joinHistory: JSON.parse(JSON.stringify(history)),
@@ -330,6 +388,8 @@ export function createWebhookHandler(io: SocketIOServer) {
             status: "IN_MEETING",
             joinTime,
             leaveTime: null,
+            isHost: hostFlag,
+            userId: zoomUserId ?? undefined,
             joinHistory: JSON.parse(JSON.stringify(history)),
           },
         });

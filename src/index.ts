@@ -7,6 +7,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { prisma } from "./db";
 import { createWebhookHandler } from "./webhook";
 import apiRouter from "./api";
+import authRouter from "./authRoutes";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -62,6 +63,7 @@ app.post("/api/zoom/webhook", async (req, res) => {
 });
 
 // ── REST API ────────────────────────────────────────────────────────────────
+app.use("/api/auth", authRouter);
 app.use("/api", apiRouter);
 
 app.get("/", (_req, res) => res.send("NSI Zoom Server ✓"));

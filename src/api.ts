@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { prisma } from "./db";
 import { getUpcomingMeetings, getZoomToken } from "./zoom";
+import { requireAuth } from "./auth";
 import axios from "axios";
 
 const router = Router();
+router.use(requireAuth);
 
 // ── Helper: seed MeetingSessions from Zoom API for a given meeting ────────────
 // Called when we fetch upcoming meetings and find a recurring meeting that has
@@ -64,6 +66,35 @@ export async function seedSessionsForMeeting(
   }
 }
 
+const SESSION_MATCH_MS = 45 * 60 * 1000;
+
+function resolveOccurrenceStatus(
+  meetingId: string,
+  occurrenceId: string | null | undefined,
+  startTime: string,
+  dbSessions: {
+    meetingId: string;
+    occurrenceId: string | null;
+    scheduledStart: Date;
+    status: string;
+  }[]
+) {
+  const exact = dbSessions.find(
+    (s) =>
+      s.meetingId === meetingId &&
+      (s.occurrenceId ?? "") === (occurrenceId ?? "")
+  );
+  if (exact) return exact.status;
+
+  const startMs = new Date(startTime).getTime();
+  const near = dbSessions.find(
+    (s) =>
+      s.meetingId === meetingId &&
+      Math.abs(s.scheduledStart.getTime() - startMs) < SESSION_MATCH_MS
+  );
+  return near?.status ?? null;
+}
+
 // ── GET /api/meetings/upcoming ────────────────────────────────────────────────
 router.get("/meetings/upcoming", async (req, res) => {
   try {
@@ -91,33 +122,69 @@ router.get("/meetings/upcoming", async (req, res) => {
       }
     }
 
-    // Fetch all LIVE/ENDED sessions from DB for status overlay
-    const liveSessions = await prisma.meetingSession.findMany({
+    // Fetch LIVE/ENDED sessions from DB (Zoom API omits in-progress occurrences)
+    const dbSessions = await prisma.meetingSession.findMany({
       where: { status: { in: ["LIVE", "ENDED"] } },
-      select: { meetingId: true, occurrenceId: true, status: true },
+      include: {
+        meeting: { select: { topic: true, joinUrl: true, type: true } },
+      },
     });
 
-    // Build lookup: "meetingId:occurrenceId" → status
-    const statusMap = new Map(
-      liveSessions.map((s) => [
-        `${s.meetingId}:${s.occurrenceId ?? ""}`,
-        s.status,
-      ])
+    type OccurrenceResult = {
+      id: string;
+      uuid: string;
+      occurrenceId: string | null;
+      topic: string;
+      startTime: string;
+      duration: number;
+      joinUrl: string;
+      status: string;
+    };
+
+    const result: OccurrenceResult[] = occurrences.map((occ) => ({
+      id: occ.id,
+      uuid: occ.uuid,
+      occurrenceId: occ.occurrenceId ?? null,
+      topic: occ.topic,
+      startTime: occ.startTime,
+      duration: occ.duration,
+      joinUrl: occ.joinUrl,
+      status:
+        resolveOccurrenceStatus(
+          occ.id,
+          occ.occurrenceId,
+          occ.startTime,
+          dbSessions
+        ) ?? "SCHEDULED",
+    }));
+
+    // Inject LIVE/ENDED sessions missing from Zoom list (e.g. currently live occurrence)
+    const resultKeys = new Set(
+      result.map((r) => `${r.id}:${r.occurrenceId ?? ""}`)
     );
 
-    const result = occurrences.map((occ) => {
-      const key = `${occ.id}:${occ.occurrenceId ?? ""}`;
-      const dbStatus = statusMap.get(key);
-      return {
-        id: occ.id,
-        uuid: occ.uuid,
-        occurrenceId: occ.occurrenceId ?? null,
-        topic: occ.topic,
-        startTime: occ.startTime,
-        duration: occ.duration,
-        joinUrl: occ.joinUrl,
-        status: dbStatus ?? "SCHEDULED",
-      };
+    for (const session of dbSessions) {
+      const key = `${session.meetingId}:${session.occurrenceId ?? ""}`;
+      if (resultKeys.has(key)) continue;
+
+      result.push({
+        id: session.meetingId,
+        uuid: session.occurrenceId ?? session.meetingId,
+        occurrenceId: session.occurrenceId,
+        topic: session.meeting.topic,
+        startTime: session.scheduledStart.toISOString(),
+        duration: session.duration,
+        joinUrl: session.meeting.joinUrl ?? "",
+        status: session.status,
+      });
+      resultKeys.add(key);
+    }
+
+    // LIVE meetings first, then by start time
+    result.sort((a, b) => {
+      if (a.status === "LIVE" && b.status !== "LIVE") return -1;
+      if (b.status === "LIVE" && a.status !== "LIVE") return 1;
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
 
     res.json(result);
@@ -127,28 +194,252 @@ router.get("/meetings/upcoming", async (req, res) => {
   }
 });
 
+// ── GET /api/meetings/history ─────────────────────────────────────────────────
+router.get("/meetings/history", async (_req, res) => {
+  const meetings = await prisma.meeting.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      sessions: { orderBy: { scheduledStart: "desc" } },
+      _count: { select: { registrants: true } },
+    },
+  });
+
+  res.json(
+    meetings.map((m) => ({
+      id: m.id,
+      topic: m.topic,
+      type: m.type,
+      joinUrl: m.joinUrl,
+      timezone: m.timezone,
+      createdAt: m.createdAt,
+      totalRegistrants: m._count.registrants,
+      sessions: m.sessions.map((s) => ({
+        id: s.id,
+        occurrenceId: s.occurrenceId,
+        scheduledStart: s.scheduledStart,
+        duration: s.duration,
+        status: s.status,
+        endTime: s.endTime,
+      })),
+    }))
+  );
+});
+
+function resolveIsHost(
+  p: { isHost: boolean; userId: string | null; email: string },
+  meetingHostId: string | null | undefined,
+  meetingHostEmail: string | null | undefined
+) {
+  if (p.isHost) return true;
+  if (meetingHostId && p.userId === meetingHostId) return true;
+  if (meetingHostEmail && p.email === meetingHostEmail) return true;
+  return false;
+}
+
+interface JoinSegment {
+  joinTime: string;
+  leaveTime: string | null;
+}
+
+function segmentDurationMs(joinTime: string, leaveTime: string | null) {
+  const end = leaveTime ? new Date(leaveTime).getTime() : Date.now();
+  return Math.max(0, end - new Date(joinTime).getTime());
+}
+
+// ── GET /api/users/:email/profile ─────────────────────────────────────────────
+router.get("/users/:email/profile", async (req, res) => {
+  const email = decodeURIComponent(req.params.email);
+  const meetingFilter = req.query.meetingId as string | undefined;
+  const fromDate = req.query.fromDate as string | undefined;
+  const toDate = req.query.toDate as string | undefined;
+
+  const registrants = await prisma.registrant.findMany({
+    where: { email },
+    include: { meeting: { select: { id: true, topic: true, type: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const participants = await prisma.participant.findMany({
+    where: {
+      email,
+      ...(meetingFilter
+        ? { session: { meetingId: meetingFilter } }
+        : {}),
+    },
+    include: {
+      session: {
+        include: {
+          meeting: { select: { id: true, topic: true, type: true, hostId: true, hostEmail: true } },
+        },
+      },
+    },
+    orderBy: { joinTime: "desc" },
+  });
+
+  const regByMeeting = new Map(registrants.map((r) => [r.meetingId, r]));
+  const joinedMeetingIds = new Set<string>();
+
+  type ActivityRow = {
+    id: string;
+    meetingId: string;
+    meetingTopic: string;
+    sessionId: string | null;
+    occurrenceId: string | null;
+    scheduledStart: string | null;
+    sessionStatus: string | null;
+    role: "HOST" | "REGISTRANT" | "GUEST";
+    isHost: boolean;
+    isRegistrant: boolean;
+    attendanceStatus: string;
+    sixABonus: string;
+    registeredAt: string | null;
+    registrationStatus: string | null;
+    joinTime: string | null;
+    leaveTime: string | null;
+    durationMs: number;
+    segmentIndex: number;
+    totalSegments: number;
+  };
+
+  const activityLog: ActivityRow[] = [];
+
+  for (const p of participants) {
+    const reg = regByMeeting.get(p.session.meeting.id);
+    const isHost = resolveIsHost(
+      p,
+      p.session.meeting.hostId,
+      p.session.meeting.hostEmail
+    );
+    const isRegistrant = !!reg;
+    const role: ActivityRow["role"] = isHost
+      ? "HOST"
+      : isRegistrant
+        ? "REGISTRANT"
+        : "GUEST";
+
+    joinedMeetingIds.add(p.session.meeting.id);
+
+    const history = (p.joinHistory as unknown as JoinSegment[]) ?? [];
+    const segments: JoinSegment[] =
+      history.length > 0
+        ? history
+        : [
+            {
+              joinTime: p.joinTime.toISOString(),
+              leaveTime: p.leaveTime?.toISOString() ?? null,
+            },
+          ];
+
+    segments.forEach((seg, idx) => {
+      activityLog.push({
+        id: `${p.id}-seg-${idx}`,
+        meetingId: p.session.meeting.id,
+        meetingTopic: p.session.meeting.topic,
+        sessionId: p.session.id,
+        occurrenceId: p.session.occurrenceId,
+        scheduledStart: p.session.scheduledStart.toISOString(),
+        sessionStatus: p.session.status,
+        role,
+        isHost,
+        isRegistrant,
+        attendanceStatus: p.status,
+        sixABonus: reg?.sixABonus ?? "",
+        registeredAt: reg?.createdAt.toISOString() ?? null,
+        registrationStatus: reg?.status ?? null,
+        joinTime: seg.joinTime,
+        leaveTime: seg.leaveTime,
+        durationMs: segmentDurationMs(seg.joinTime, seg.leaveTime),
+        segmentIndex: idx + 1,
+        totalSegments: segments.length,
+      });
+    });
+  }
+
+  // Registrations where user never joined any session for that meeting
+  for (const reg of registrants) {
+    if (meetingFilter && reg.meetingId !== meetingFilter) continue;
+    if (joinedMeetingIds.has(reg.meetingId)) continue;
+
+    activityLog.push({
+      id: `reg-${reg.id}`,
+      meetingId: reg.meetingId,
+      meetingTopic: reg.meeting.topic,
+      sessionId: null,
+      occurrenceId: null,
+      scheduledStart: null,
+      sessionStatus: null,
+      role: "REGISTRANT",
+      isHost: false,
+      isRegistrant: true,
+      attendanceStatus: "NOT_JOINED",
+      sixABonus: reg.sixABonus,
+      registeredAt: reg.createdAt.toISOString(),
+      registrationStatus: reg.status,
+      joinTime: null,
+      leaveTime: null,
+      durationMs: 0,
+      segmentIndex: 0,
+      totalSegments: 0,
+    });
+  }
+
+  let filteredLog = activityLog;
+
+  if (meetingFilter) {
+    filteredLog = filteredLog.filter((r) => r.meetingId === meetingFilter);
+  }
+
+  if (fromDate || toDate) {
+    filteredLog = filteredLog.filter((r) => {
+      const dateKey = (r.joinTime ?? r.registeredAt ?? r.scheduledStart)?.slice(0, 10);
+      if (!dateKey) return true;
+      if (fromDate && dateKey < fromDate) return false;
+      if (toDate && dateKey > toDate) return false;
+      return true;
+    });
+  }
+
+  filteredLog.sort((a, b) => {
+    const aTime = new Date(a.joinTime ?? a.registeredAt ?? 0).getTime();
+    const bTime = new Date(b.joinTime ?? b.registeredAt ?? 0).getTime();
+    return bTime - aTime;
+  });
+
+  const joinedRows = filteredLog.filter((r) => r.joinTime);
+  const totalDurationMs = joinedRows.reduce((sum, r) => sum + r.durationMs, 0);
+  const name =
+    registrants[0]?.name ||
+    participants[0]?.name ||
+    email.split("@")[0];
+  const sixABonus = registrants.find((r) => r.sixABonus)?.sixABonus ?? "";
+
+  res.json({
+    email,
+    name,
+    sixABonus,
+    totalDurationMs,
+    totalMeetingsJoined: new Set(joinedRows.map((r) => r.meetingId)).size,
+    totalSessions: joinedRows.length,
+    totalRegistrations: registrants.length,
+    activityLog: filteredLog,
+  });
+});
+
 // ── GET /api/meetings/:meetingId/attendance ───────────────────────────────────
-// ?occurrenceId=1780727400000   — recurring meeting occurrence
-// (no param)                   — one-time meeting (uses most recent/live session)
 router.get("/meetings/:meetingId/attendance", async (req, res) => {
   const { meetingId } = req.params;
   const occurrenceId = req.query.occurrenceId as string | undefined;
 
-  // Fetch registrants (registered for the whole series)
-  const registrants = await prisma.registrant.findMany({
-    where: { meetingId },
-  });
+  const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
+  const registrants = await prisma.registrant.findMany({ where: { meetingId } });
 
-  // Find the relevant MeetingSession
   let session: Awaited<ReturnType<typeof prisma.meetingSession.findFirst>> = null;
 
   if (occurrenceId) {
-    // Recurring: look up by occurrenceId
     session = await prisma.meetingSession.findFirst({
       where: { meetingId, occurrenceId },
     });
   } else {
-    // One-time: use LIVE session first, then most recent ENDED
     session = await prisma.meetingSession.findFirst({
       where: { meetingId, status: "LIVE" },
     });
@@ -160,54 +451,160 @@ router.get("/meetings/:meetingId/attendance", async (req, res) => {
     }
   }
 
-  // Participants for this session only
   const participants = session
     ? await prisma.participant.findMany({ where: { sessionId: session.id } })
     : [];
 
   const participantByEmail = new Map(participants.map((p) => [p.email, p]));
+  const registrantEmails = new Set(registrants.map((r) => r.email));
 
-  const attendance = registrants.map((reg) => {
+  type PersonRow = {
+    id: string | null;
+    email: string;
+    name: string;
+    role: "HOST" | "REGISTRANT" | "GUEST";
+    isHost: boolean;
+    isRegistrant: boolean;
+    status: string;
+    sixABonus: string;
+    joinTime: Date | null;
+    leaveTime: Date | null;
+    duration: number;
+    joinHistory: unknown;
+  };
+
+  const people: PersonRow[] = [];
+
+  for (const reg of registrants) {
     const joined = participantByEmail.get(reg.email);
-    return {
+    const isHost = joined
+      ? resolveIsHost(joined, meeting?.hostId, meeting?.hostEmail)
+      : false;
+    people.push({
+      id: joined?.id ?? null,
       email: reg.email,
       name: reg.name,
+      role: isHost ? "HOST" : "REGISTRANT",
+      isHost,
+      isRegistrant: true,
       status: joined ? joined.status : "NOT_JOINED",
       sixABonus: reg.sixABonus || "",
       joinTime: joined?.joinTime ?? null,
       leaveTime: joined?.leaveTime ?? null,
       duration: joined?.duration ?? 0,
       joinHistory: joined?.joinHistory ?? [],
-    };
-  });
+    });
+  }
 
-  const registrantEmails = new Set(registrants.map((r) => r.email));
-  const guests = participants
-    .filter((p) => !registrantEmails.has(p.email))
-    .map((p) => ({
+  for (const p of participants) {
+    if (registrantEmails.has(p.email)) continue;
+    const isHost = resolveIsHost(p, meeting?.hostId, meeting?.hostEmail);
+    people.push({
       id: p.id,
       email: p.email,
       name: p.name,
+      role: isHost ? "HOST" : "GUEST",
+      isHost,
+      isRegistrant: false,
       status: p.status,
+      sixABonus: "",
       joinTime: p.joinTime,
       leaveTime: p.leaveTime,
       duration: p.duration,
       joinHistory: p.joinHistory,
-    }));
+    });
+  }
+
+  people.sort((a, b) => {
+    if (a.isHost !== b.isHost) return a.isHost ? -1 : 1;
+    if (a.status === "IN_MEETING" && b.status !== "IN_MEETING") return -1;
+    if (b.status === "IN_MEETING" && a.status !== "IN_MEETING") return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const registrantsJoined = people.filter(
+    (p) => p.isRegistrant && p.status !== "NOT_JOINED"
+  ).length;
+  const notJoined = people.filter(
+    (p) => p.isRegistrant && p.status === "NOT_JOINED"
+  ).length;
+
+  const sixARanks = [
+    ...new Set(
+      registrants.map((r) => r.sixABonus).filter((v) => v && v.trim() !== "")
+    ),
+  ].sort();
 
   res.json({
     meetingId,
+    topic: meeting?.topic ?? "Meeting",
     occurrenceId: occurrenceId ?? null,
     sessionId: session?.id ?? null,
     status: session?.status ?? "SCHEDULED",
     startTime: session?.scheduledStart ?? null,
     endTime: session?.endTime ?? null,
     totalRegistered: registrants.length,
-    totalJoined: participants.length,
-    currentlyInMeeting: participants.filter((p) => p.status === "IN_MEETING")
-      .length,
-    attendance,
-    guests,
+    registrantsJoined,
+    notJoined,
+    totalInMeeting: people.filter((p) => p.status === "IN_MEETING").length,
+    totalPeople: people.length,
+    sixARanks,
+    people,
+  });
+});
+
+// ── GET /api/registrations ────────────────────────────────────────────────────
+router.get("/registrations", async (req, res) => {
+  const meetingId = req.query.meetingId as string | undefined;
+  const sixA = req.query.sixA as string | undefined;
+  const search = req.query.search as string | undefined;
+
+  const registrants = await prisma.registrant.findMany({
+    where: {
+      ...(meetingId ? { meetingId } : {}),
+      ...(sixA ? { sixABonus: sixA } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      meeting: { select: { id: true, topic: true, type: true } },
+    },
+  });
+
+  const sixARanks = [
+    ...new Set(
+      (
+        await prisma.registrant.findMany({
+          where: { sixABonus: { not: "" } },
+          select: { sixABonus: true },
+          distinct: ["sixABonus"],
+        })
+      ).map((r) => r.sixABonus)
+    ),
+  ].sort();
+
+  res.json({
+    total: registrants.length,
+    sixARanks,
+    registrations: registrants.map((r) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      sixABonus: r.sixABonus,
+      status: r.status,
+      joinUrl: r.joinUrl,
+      createdAt: r.createdAt,
+      meeting: r.meeting,
+    })),
   });
 });
 
