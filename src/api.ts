@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { prisma } from "./db";
-import { getUpcomingMeetings, getZoomToken } from "./zoom";
+import {
+  getUpcomingMeetings,
+  getMeetingDetails,
+  getZoomToken,
+  listMeetingRegistrants,
+} from "./zoom";
+import {
+  normalizeZoomRegistrant,
+  upsertRegistrant,
+} from "./registrants";
 import { requireAuth } from "./auth";
 import axios from "axios";
 
@@ -423,6 +432,90 @@ router.get("/users/:email/profile", async (req, res) => {
     totalRegistrations: registrants.length,
     activityLog: filteredLog,
   });
+});
+
+// ── POST /api/meetings/:meetingId/registrants/sync ───────────────────────────
+router.post("/meetings/:meetingId/registrants/sync", async (req, res) => {
+  const { meetingId } = req.params;
+  const occurrenceId = req.query.occurrenceId as string | undefined;
+
+  let meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
+
+  if (!meeting) {
+    try {
+      const detail = await getMeetingDetails(meetingId);
+      meeting = await prisma.meeting.upsert({
+        where: { id: meetingId },
+        create: {
+          id: meetingId,
+          topic: detail.topic,
+          timezone: detail.timezone ?? null,
+          type: detail.type,
+          joinUrl: detail.join_url ?? null,
+        },
+        update: {
+          topic: detail.topic,
+          joinUrl: detail.join_url ?? null,
+        },
+      });
+    } catch (err: any) {
+      const status = err.response?.status;
+      console.error(
+        `[SYNC] Failed to fetch meeting ${meetingId}:`,
+        err.response?.data ?? err.message
+      );
+      if (status === 404) {
+        return res.status(404).json({ error: "Meeting not found on Zoom" });
+      }
+      return res.status(502).json({ error: "Failed to fetch meeting from Zoom" });
+    }
+  }
+
+  try {
+    const zoomRegistrants = await listMeetingRegistrants(meetingId, occurrenceId);
+    let created = 0;
+    let updated = 0;
+
+    for (const raw of zoomRegistrants) {
+      const data = normalizeZoomRegistrant(raw);
+      const result = await upsertRegistrant(meetingId, data);
+      if (result === "created") created++;
+      else updated++;
+    }
+
+    console.log(
+      `[SYNC] Meeting ${meetingId}: ${zoomRegistrants.length} registrant(s) — ${created} created, ${updated} updated`
+    );
+
+    res.json({
+      synced: zoomRegistrants.length,
+      created,
+      updated,
+      total: zoomRegistrants.length,
+    });
+  } catch (err: any) {
+    const status = err.response?.status;
+    const zoomMessage =
+      err.response?.data?.message ?? err.response?.data?.code ?? err.message;
+    console.error(
+      `[SYNC] Failed to fetch registrants for ${meetingId}:`,
+      err.response?.data ?? err.message
+    );
+
+    if (status === 404) {
+      return res.status(404).json({
+        error: "Meeting not found or registration is not enabled",
+      });
+    }
+    if (status === 400) {
+      return res.status(400).json({
+        error: zoomMessage || "Unable to list registrants for this meeting",
+      });
+    }
+    return res.status(502).json({
+      error: "Failed to fetch registrants from Zoom",
+    });
+  }
 });
 
 // ── GET /api/meetings/:meetingId/attendance ───────────────────────────────────

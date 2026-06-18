@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import { Server as SocketIOServer } from "socket.io";
 import { prisma } from "./db";
 import { seedSessionsForMeeting } from "./api";
+import {
+  normalizeZoomRegistrant,
+  upsertRegistrant,
+} from "./registrants";
 import fs from "fs";
 import path from "path";
 
@@ -278,7 +282,6 @@ export function createWebhookHandler(io: SocketIOServer) {
       // ── Registration ─────────────────────────────────────────────────────────
       case "meeting.registration_created": {
         const r = obj.registrant ?? {};
-        const sixABonus: string = r.custom_questions?.[0]?.value ?? "";
 
         // Ensure parent meeting exists
         await ensureMeeting(meetingId, {
@@ -290,29 +293,21 @@ export function createWebhookHandler(io: SocketIOServer) {
           hostEmail: obj.host_email,
         });
 
-        await prisma.registrant.upsert({
-          where: { meetingId_email: { meetingId, email: r.email } },
-          create: {
-            zoomId: r.id ?? "",
-            meetingId,
-            email: r.email,
-            name: `${r.first_name} ${r.last_name}`.trim(),
-            firstName: r.first_name ?? "",
-            lastName: r.last_name ?? "",
-            sixABonus,
-            joinUrl: r.join_url ?? null,
-            status: r.status ?? "approved",
-          },
-          update: {
-            sixABonus,
-            joinUrl: r.join_url ?? undefined,
-            status: r.status ?? undefined,
-          },
+        const registrant = normalizeZoomRegistrant({
+          id: r.id,
+          email: r.email,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          custom_questions: r.custom_questions,
+          join_url: r.join_url,
+          status: r.status,
         });
+
+        await upsertRegistrant(meetingId, registrant);
 
         io.to(`meeting-${meetingId}`).emit("user-registered", { meetingId });
         console.log(
-          `[REG] ${r.first_name} ${r.last_name} (${r.email}) → 6A: "${sixABonus}"`
+          `[REG] ${r.first_name} ${r.last_name} (${r.email}) → 6A: "${registrant.sixABonus}"`
         );
         break;
       }

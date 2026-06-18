@@ -16,7 +16,7 @@ function hashPassword(password: string): string {
   return crypto.scryptSync(password, SALT, 64).toString("hex");
 }
 
-const ADMIN_EMAIL = "admin@mail.com";
+const ADMIN_EMAIL = "nsi-livemeet@admin.com";
 const ADMIN_PASSWORD = "admin123";
 
 async function main() {
@@ -28,10 +28,12 @@ async function main() {
       email: ADMIN_EMAIL,
       password: hashed,
       name: "Admin",
+      role: "ADMIN",
     },
     update: {
       password: hashed,
       name: "Admin",
+      role: "ADMIN",
     },
   });
 

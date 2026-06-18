@@ -11,15 +11,22 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Email and password required" });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
   if (!user || !verifyPassword(password, user.password)) {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
-  const token = signToken(user.id, user.email);
+  const token = signToken(user.id, user.email, user.role);
   res.json({
     token,
-    user: { id: user.id, email: user.email, name: user.name },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    },
   });
 });
 
@@ -27,7 +34,7 @@ router.get("/me", requireAuth, async (req, res) => {
   const { userId } = (req as typeof req & { user: { userId: string } }).user;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, role: true },
   });
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json({ user });

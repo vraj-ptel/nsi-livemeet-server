@@ -5,7 +5,10 @@
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:prod": "NODE_ENV=production node dist/index.js",
+    "postinstall": "prisma generate",
     "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
     "generate": "prisma generate",
     "clear-db": "tsx scripts/clear-db.ts",
     "seed-admin": "tsx scripts/seed-admin.ts"
@@ -17,6 +20,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.3",
+    "prisma": "5",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
@@ -25,7 +29,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.0",
     "nodemon": "^3.1.14",
-    "prisma": "5",
     "ts-node": "^10.9.2",
     "tsx": "^4.15.0",
     "typescript": "^5.4.5"

@@ -8,13 +8,28 @@ import { prisma } from "./db";
 import { createWebhookHandler } from "./webhook";
 import apiRouter from "./api";
 import authRouter from "./authRoutes";
+import teamRouter from "./teamRoutes";
+import { getAllowedOrigins } from "./cors";
+import { attachSocketAuth, registerMeetingSubscriptions } from "./socketAuth";
 
 const app = express();
 const httpServer = http.createServer(app);
-const io = new SocketIOServer(httpServer, { cors: { origin: "*" } });
+const allowedOrigins = getAllowedOrigins();
+
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
 
 // ── Middleware ──────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -64,33 +79,19 @@ app.post("/api/zoom/webhook", async (req, res) => {
 
 // ── REST API ────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRouter);
+app.use("/api/team", teamRouter);
 app.use("/api", apiRouter);
 
-app.get("/", (_req, res) => res.send("NSI Zoom Server ✓"));
+app.get("/", (_req, res) => res.send("NSI Live Meet Server ✓"));
 
-// ── Socket.IO ───────────────────────────────────────────────────────────────
-io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
-
-  socket.on("subscribe-meeting", async (meetingId: string) => {
-    socket.join(`meeting-${meetingId}`);
-    console.log(`Socket ${socket.id} → room meeting-${meetingId}`);
-
-
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
-  });
-});
+// ── Socket.IO (JWT required) ────────────────────────────────────────────────
+attachSocketAuth(io);
+registerMeetingSubscriptions(io);
 
 // ── Start ───────────────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT) || 8000;
 httpServer.listen(PORT, () => {
-  console.log(`\n🚀 NSI Zoom Server running on port ${PORT}`);
-  console.log(
-    `📡 Webhook: ${process.env.NGROK_URL ?? "http://localhost:" + PORT}/api/zoom/webhook`
-  );
+  console.log(`\n🚀 NSI Live Meet Server running on port ${PORT}`);
   console.log(`🗄️  Database: ${process.env.DATABASE_URL?.split("@")[1] ?? "configured"}\n`);
 });
 

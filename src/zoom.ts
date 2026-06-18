@@ -125,3 +125,81 @@ export async function getUpcomingMeetings(): Promise<ZoomOccurrence[]> {
 
   return results;
 }
+
+export interface ZoomMeetingDetails {
+  id: number | string;
+  topic: string;
+  timezone?: string;
+  type: number;
+  join_url?: string;
+  host_id?: string;
+}
+
+export async function getMeetingDetails(
+  meetingId: string
+): Promise<ZoomMeetingDetails> {
+  const token = await getZoomToken();
+  const response = await axios.get(
+    `https://api.zoom.us/v2/meetings/${meetingId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
+}
+
+export async function listMeetingRegistrants(
+  meetingId: string,
+  occurrenceId?: string
+): Promise<
+  {
+    id?: string;
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    custom_questions?: { value?: string }[];
+    join_url?: string;
+    status?: string;
+  }[]
+> {
+  const token = await getZoomToken();
+  const byEmail = new Map<
+    string,
+    {
+      id?: string;
+      email: string;
+      first_name?: string;
+      last_name?: string;
+      custom_questions?: { value?: string }[];
+      join_url?: string;
+      status?: string;
+    }
+  >();
+
+  for (const status of ["approved", "pending"] as const) {
+    let nextPageToken: string | undefined;
+
+    do {
+      const response = await axios.get(
+        `https://api.zoom.us/v2/meetings/${meetingId}/registrants`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            page_size: 300,
+            status,
+            ...(nextPageToken ? { next_page_token: nextPageToken } : {}),
+            ...(occurrenceId ? { occurrence_id: occurrenceId } : {}),
+          },
+        }
+      );
+
+      for (const registrant of response.data.registrants ?? []) {
+        if (registrant.email) {
+          byEmail.set(registrant.email, registrant);
+        }
+      }
+
+      nextPageToken = response.data.next_page_token;
+    } while (nextPageToken);
+  }
+
+  return Array.from(byEmail.values());
+}

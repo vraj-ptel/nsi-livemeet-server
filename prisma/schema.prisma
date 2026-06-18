@@ -21,12 +21,18 @@ enum ParticipantStatus {
   LEFT
 }
 
-// ── Admin user for dashboard login ────────────────────────────────────────────
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+// ── Dashboard login users (team) ──────────────────────────────────────────────
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
   name      String   @default("Admin")
+  role      UserRole @default(MEMBER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
