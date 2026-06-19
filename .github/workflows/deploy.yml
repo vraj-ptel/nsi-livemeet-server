@@ -2,7 +2,7 @@ name: Deploy LiveMeet Backend
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   deploy:
