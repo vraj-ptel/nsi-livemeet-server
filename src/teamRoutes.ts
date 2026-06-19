@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { UserRole } from "@prisma/client";
 import { prisma } from "./db";
-import { hashPassword, requireAuth, requireAdmin } from "./auth";
+import { hashPassword, requireAuth, requireAdmin, revokeAllUserSessions } from "./auth";
 
 const router = Router();
 
@@ -150,6 +150,11 @@ router.patch("/:id", async (req, res) => {
   }
 
   const user = await prisma.user.update({ where: { id }, data });
+
+  if (data.password) {
+    await revokeAllUserSessions(user.id);
+  }
+
   res.json({ member: publicUser(user) });
 });
 

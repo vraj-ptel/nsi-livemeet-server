@@ -1,11 +1,22 @@
+import { parse as parseCookie } from "cookie";
 import type { Server, Socket } from "socket.io";
-import { verifyToken, type AuthUser } from "./auth";
+import { ACCESS_COOKIE } from "./cookies";
+import { verifyAccessToken, type AuthUser } from "./auth";
 
 export interface AuthenticatedSocketData {
   user: AuthUser;
 }
 
-function extractToken(socket: Socket): string | null {
+function extractSocketToken(socket: Socket): string | null {
+  const raw = socket.handshake.headers.cookie;
+  if (typeof raw === "string" && raw.length > 0) {
+    const parsed = parseCookie(raw);
+    const fromCookie = parsed[ACCESS_COOKIE];
+    if (typeof fromCookie === "string" && fromCookie.length > 0) {
+      return fromCookie;
+    }
+  }
+
   const authToken = socket.handshake.auth?.token;
   if (typeof authToken === "string" && authToken.length > 0) {
     return authToken;
@@ -21,12 +32,12 @@ function extractToken(socket: Socket): string | null {
 
 export function attachSocketAuth(io: Server) {
   io.use((socket, next) => {
-    const token = extractToken(socket);
+    const token = extractSocketToken(socket);
     if (!token) {
       return next(new Error("Unauthorized"));
     }
 
-    const user = verifyToken(token);
+    const user = verifyAccessToken(token);
     if (!user) {
       return next(new Error("Unauthorized"));
     }

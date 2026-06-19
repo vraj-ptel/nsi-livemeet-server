@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import crypto from "crypto";
 import http from "http";
+import cookieParser from "cookie-parser";
 import { Server as SocketIOServer } from "socket.io";
 import { prisma } from "./db";
 import { createWebhookHandler } from "./webhook";
@@ -15,6 +16,10 @@ import { attachSocketAuth, registerMeetingSubscriptions } from "./socketAuth";
 const app = express();
 const httpServer = http.createServer(app);
 const allowedOrigins = getAllowedOrigins();
+
+if (process.env.NODE_ENV === "production" || process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
 
 const io = new SocketIOServer(httpServer, {
   cors: {
@@ -30,6 +35,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(cookieParser());
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {

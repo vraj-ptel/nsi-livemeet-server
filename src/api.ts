@@ -234,6 +234,182 @@ router.get("/meetings/history", async (_req, res) => {
   );
 });
 
+// ── GET /api/dashboard/overview ───────────────────────────────────────────────
+router.get("/dashboard/overview", async (_req, res) => {
+  const [
+    totalMeetings,
+    totalRegistrants,
+    totalSessions,
+    liveSessions,
+    endedSessions,
+    scheduledSessions,
+    sessionStatusGroups,
+    sixAGroups,
+    topMeetingsRaw,
+  ] = await Promise.all([
+    prisma.meeting.count(),
+    prisma.registrant.count(),
+    prisma.meetingSession.count(),
+    prisma.meetingSession.count({ where: { status: "LIVE" } }),
+    prisma.meetingSession.count({ where: { status: "ENDED" } }),
+    prisma.meetingSession.count({ where: { status: "SCHEDULED" } }),
+    prisma.meetingSession.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+    prisma.registrant.groupBy({
+      by: ["sixABonus"],
+      _count: { _all: true },
+      where: { sixABonus: { not: "" } },
+      orderBy: { _count: { sixABonus: "desc" } },
+      take: 8,
+    }),
+    prisma.meeting.findMany({
+      take: 5,
+      orderBy: { registrants: { _count: "desc" } },
+      include: { _count: { select: { registrants: true, sessions: true } } },
+    }),
+  ]);
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  const sessionsForCharts = await prisma.meetingSession.findMany({
+    where: { scheduledStart: { gte: twelveMonthsAgo } },
+    orderBy: { scheduledStart: "asc" },
+    include: {
+      meeting: {
+        select: {
+          id: true,
+          topic: true,
+          registrants: { select: { email: true } },
+        },
+      },
+      participants: { select: { email: true } },
+    },
+  });
+
+  const recentSessions = [...sessionsForCharts]
+    .sort((a, b) => b.scheduledStart.getTime() - a.scheduledStart.getTime())
+    .slice(0, 30)
+    .reverse();
+
+  let totalRegisteredInSessions = 0;
+  let totalJoinedInSessions = 0;
+  let totalGuestsInSessions = 0;
+
+  const series = recentSessions.map((session) => {
+    const registrantEmails = new Set(
+      session.meeting.registrants.map((r) => r.email)
+    );
+    const registered = registrantEmails.size;
+    const joined = session.participants.filter((p) =>
+      registrantEmails.has(p.email)
+    ).length;
+    const guests = session.participants.filter(
+      (p) => !registrantEmails.has(p.email)
+    ).length;
+    const notJoined = Math.max(0, registered - joined);
+
+    totalRegisteredInSessions += registered;
+    totalJoinedInSessions += joined;
+    totalGuestsInSessions += guests;
+
+    return {
+      sessionId: session.id,
+      meetingId: session.meetingId,
+      topic: session.meeting.topic,
+      label: session.scheduledStart.toISOString(),
+      registered,
+      joined,
+      notJoined,
+      guests,
+    };
+  });
+
+  const monthlyMap = new Map<
+    string,
+    { month: string; sessions: number; registered: number; joined: number }
+  >();
+
+  for (const session of sessionsForCharts) {
+    const monthKey = session.scheduledStart.toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+    });
+    const monthLabel = session.scheduledStart.toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      month: "short",
+      year: "numeric",
+    });
+    const registrantEmails = new Set(
+      session.meeting.registrants.map((r) => r.email)
+    );
+    const joined = session.participants.filter((p) =>
+      registrantEmails.has(p.email)
+    ).length;
+
+    const existing = monthlyMap.get(monthKey) ?? {
+      month: monthLabel,
+      sessions: 0,
+      registered: 0,
+      joined: 0,
+    };
+    existing.sessions += 1;
+    existing.registered += registrantEmails.size;
+    existing.joined += joined;
+    monthlyMap.set(monthKey, existing);
+  }
+
+  const monthly = [...monthlyMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, value]) => value);
+
+  const attendanceRate =
+    totalRegisteredInSessions > 0
+      ? Math.round((totalJoinedInSessions / totalRegisteredInSessions) * 100)
+      : 0;
+
+  const sessionStatus = {
+    SCHEDULED: 0,
+    LIVE: 0,
+    ENDED: 0,
+  };
+  for (const group of sessionStatusGroups) {
+    sessionStatus[group.status] = group._count._all;
+  }
+
+  res.json({
+    totals: {
+      meetings: totalMeetings,
+      registrants: totalRegistrants,
+      sessions: totalSessions,
+      liveSessions,
+      endedSessions,
+      scheduledSessions,
+      attendanceRate,
+      guests: totalGuestsInSessions,
+      notJoined: Math.max(0, totalRegisteredInSessions - totalJoinedInSessions),
+      avgRegistrantsPerMeeting:
+        totalMeetings > 0 ? Math.round(totalRegistrants / totalMeetings) : 0,
+    },
+    sessionStatus,
+    monthly,
+    sixADistribution: sixAGroups.map((g) => ({
+      rank: g.sixABonus || "Unknown",
+      count: g._count._all,
+    })),
+    topMeetings: topMeetingsRaw.map((m) => ({
+      meetingId: m.id,
+      topic: m.topic,
+      registrants: m._count.registrants,
+      sessions: m._count.sessions,
+    })),
+    series,
+  });
+});
+
 function resolveIsHost(
   p: { isHost: boolean; userId: string | null; email: string },
   meetingHostId: string | null | undefined,

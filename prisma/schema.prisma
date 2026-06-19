@@ -28,13 +28,28 @@ enum UserRole {
 
 // ── Dashboard login users (team) ──────────────────────────────────────────────
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String   @default("Admin")
-  role      UserRole @default(MEMBER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  name         String        @default("Admin")
+  role         UserRole      @default(MEMBER)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  authSessions AuthSession[]
+}
+
+// ── Dashboard refresh-token sessions (HttpOnly cookie auth) ─────────────────
+model AuthSession {
+  id          String   @id @default(cuid())
+  userId      String
+  refreshHash String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ── Parent meeting (one per Zoom meeting ID) ──────────────────────────────────
