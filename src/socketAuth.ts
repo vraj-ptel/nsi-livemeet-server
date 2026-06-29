@@ -1,7 +1,7 @@
 import { parse as parseCookie } from "cookie";
 import type { Server, Socket } from "socket.io";
 import { ACCESS_COOKIE } from "./cookies";
-import { verifyAccessToken, type AuthUser } from "./auth";
+import { verifyAccessToken, verifyIdpToken, getAuthMode, type AuthUser } from "./auth";
 
 export interface AuthenticatedSocketData {
   user: AuthUser;
@@ -31,17 +31,33 @@ function extractSocketToken(socket: Socket): string | null {
 }
 
 export function attachSocketAuth(io: Server) {
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
+    if (getAuthMode() === "idp") {
+      const token = socket.handshake.auth?.token as string | undefined;
+      if (typeof token !== "string" || !token) {
+        next(new Error("Unauthorized"));
+        return;
+      }
+      try {
+        (socket.data as AuthenticatedSocketData).user = await verifyIdpToken(token);
+        next();
+      } catch {
+        next(new Error("Unauthorized"));
+      }
+      return;
+    }
+
+    // local mode — original path
     const token = extractSocketToken(socket);
     if (!token) {
-      return next(new Error("Unauthorized"));
+      next(new Error("Unauthorized"));
+      return;
     }
-
     const user = verifyAccessToken(token);
     if (!user) {
-      return next(new Error("Unauthorized"));
+      next(new Error("Unauthorized"));
+      return;
     }
-
     (socket.data as AuthenticatedSocketData).user = user;
     next();
   });

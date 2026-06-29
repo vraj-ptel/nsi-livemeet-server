@@ -10,6 +10,7 @@ import {
   setAccessCookie,
   setRefreshCookie,
 } from "./cookies";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "nsi-zoom-dev-secret-change-me";
 const SALT = process.env.PASSWORD_SALT ?? "nsi-zoom-salt";
@@ -176,14 +177,32 @@ export function extractRefreshToken(req: Request): string | null {
   return null;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (getAuthMode() === "idp") {
+    const token = extractAccessToken(req);
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      (req as Request & { user?: AuthUser }).user = await verifyIdpToken(token);
+      next();
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+    }
+    return;
+  }
+
+  // local mode — synchronous path, unchanged
   const token = extractAccessToken(req);
   if (!token) {
-    return res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
   const payload = verifyAccessToken(token);
   if (!payload) {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
   (req as Request & { user?: AuthUser }).user = payload;
   next();
@@ -216,4 +235,62 @@ export async function logoutUser(req: Request, res: Response) {
   await revokeAuthSession(refreshToken ?? undefined);
   clearAuthCookies(res);
   res.json({ ok: true });
+}
+
+// ── IdP auth (central identity provider) ─────────────────────────────────────
+
+export function getAuthMode(): "local" | "idp" {
+  return process.env.AUTH_MODE === "idp" ? "idp" : "local";
+}
+
+let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+let _jwksUri = "";
+
+function getJWKS(): ReturnType<typeof createRemoteJWKSet> {
+  const uri = process.env.JWKS_URI;
+  if (!uri) throw new Error("[auth] AUTH_MODE=idp requires JWKS_URI");
+  if (!_jwks || _jwksUri !== uri) {
+    _jwks = createRemoteJWKSet(new URL(uri));
+    _jwksUri = uri;
+  }
+  return _jwks;
+}
+
+export async function verifyIdpToken(token: string): Promise<AuthUser> {
+  const issuer = process.env.JWT_ISSUER;
+  const audience = process.env.JWT_AUDIENCE;
+  if (!issuer || !audience) {
+    throw new Error("[auth] AUTH_MODE=idp requires JWT_ISSUER and JWT_AUDIENCE");
+  }
+
+  const { payload } = await jwtVerify<{
+    realm?: string;
+    email?: string;
+    name?: string;
+  }>(token, getJWKS(), {
+    issuer,
+    audience,
+    algorithms: ["RS256"],
+  });
+
+  if (payload.realm !== "STAFF") {
+    throw new Error("Forbidden: STAFF realm required");
+  }
+
+  const email = payload.email;
+  if (!email) throw new Error("Token missing email claim");
+
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email,
+        name: payload.name ?? email,
+        role: "MEMBER",
+        password: "",
+      },
+    });
+  }
+
+  return { userId: user.id, email: user.email, role: user.role };
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { UserRole } from "@prisma/client";
 import { prisma } from "./db";
-import { hashPassword, requireAuth, requireAdmin, revokeAllUserSessions } from "./auth";
+import { requireAuth, requireAdmin } from "./auth";
 
 const router = Router();
 
@@ -43,19 +43,14 @@ router.get("/", async (_req, res) => {
 
 // POST /api/team
 router.post("/", async (req, res) => {
-  const { email, password, name, role } = req.body as {
+  const { email, name, role } = req.body as {
     email?: string;
-    password?: string;
     name?: string;
     role?: UserRole;
   };
 
-  if (!email?.trim() || !password || !name?.trim()) {
-    return res.status(400).json({ error: "Name, email, and password are required" });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  if (!email?.trim() || !name?.trim()) {
+    return res.status(400).json({ error: "Name and email are required" });
   }
 
   const normalizedEmail = normalizeEmail(email);
@@ -74,7 +69,7 @@ router.post("/", async (req, res) => {
     data: {
       email: normalizedEmail,
       name: name.trim(),
-      password: hashPassword(password),
+      password: "",
       role: memberRole,
     },
   });
@@ -85,9 +80,8 @@ router.post("/", async (req, res) => {
 // PATCH /api/team/:id
 router.patch("/:id", async (req, res) => {
   const { id } = req.params;
-  const { email, password, name, role } = req.body as {
+  const { email, name, role } = req.body as {
     email?: string;
-    password?: string;
     name?: string;
     role?: UserRole;
   };
@@ -100,7 +94,6 @@ router.patch("/:id", async (req, res) => {
   const data: {
     email?: string;
     name?: string;
-    password?: string;
     role?: UserRole;
   } = {};
 
@@ -127,13 +120,6 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
-  if (password !== undefined && password !== "") {
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
-    }
-    data.password = hashPassword(password);
-  }
-
   if (role !== undefined) {
     data.role = role === "ADMIN" ? "ADMIN" : "MEMBER";
   }
@@ -150,10 +136,6 @@ router.patch("/:id", async (req, res) => {
   }
 
   const user = await prisma.user.update({ where: { id }, data });
-
-  if (data.password) {
-    await revokeAllUserSessions(user.id);
-  }
 
   res.json({ member: publicUser(user) });
 });
