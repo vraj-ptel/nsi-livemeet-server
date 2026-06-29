@@ -28,7 +28,7 @@ vi.mock("../cookies", () => ({
 
 // ── Import after mocks ────────────────────────────────────────────────────────
 
-import { requireAuth, verifyIdpToken } from "../auth";
+import { requireAuth } from "../auth";
 import { jwtVerify } from "jose";
 import { prisma } from "../db";
 
@@ -41,10 +41,7 @@ function signLocalToken(payload: object, secret = TEST_SECRET, expiresIn = "15m"
   return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
 }
 
-function mockReq(opts: {
-  cookie?: string;
-  authHeader?: string;
-} = {}): Request {
+function mockReq(opts: { cookie?: string; authHeader?: string } = {}): Request {
   return {
     cookies: opts.cookie ? { nsi_access: opts.cookie } : {},
     headers: { authorization: opts.authHeader },
@@ -67,7 +64,6 @@ function mockNext(): NextFunction {
 describe("requireAuth — local mode (AUTH_MODE=local)", () => {
   beforeEach(() => {
     vi.stubEnv("AUTH_MODE", "local");
-    // JWT_SECRET is a module-level constant; tests sign with the same fallback value
   });
 
   afterEach(() => {
@@ -152,8 +148,6 @@ describe("requireAuth — local mode (AUTH_MODE=local)", () => {
 // ── IdP mode ──────────────────────────────────────────────────────────────────
 
 describe("requireAuth — idp mode (AUTH_MODE=idp)", () => {
-  const EXISTING_USER = { id: "local-id-1", email: "staff@nsi.com", name: "Staff User", role: "ADMIN" as const, password: "", createdAt: new Date(), updatedAt: new Date() };
-
   beforeEach(() => {
     vi.stubEnv("AUTH_MODE", "idp");
     vi.stubEnv("JWKS_URI", "http://localhost:4001/.well-known/jwks.json");
@@ -165,12 +159,11 @@ describe("requireAuth — idp mode (AUTH_MODE=idp)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("accepts a valid STAFF token, resolves existing local user", async () => {
+  it("accepts a STAFF token, keys req.user by sub with phone as email", async () => {
     vi.mocked(jwtVerify).mockResolvedValueOnce({
-      payload: { realm: "STAFF", email: "staff@nsi.com", name: "Staff User" },
+      payload: { sub: "idp-sub-123", realm: "STAFF", phone: "+911234567890", platformRole: "MEMBER" },
       protectedHeader: { alg: "RS256" },
     } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(EXISTING_USER);
 
     const req = mockReq({ authHeader: "Bearer idp.token.here" });
     const { res, statusMock } = mockRes();
@@ -180,69 +173,14 @@ describe("requireAuth — idp mode (AUTH_MODE=idp)", () => {
 
     expect(statusMock).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledOnce();
-    expect((req as any).user).toEqual({ userId: "local-id-1", email: "staff@nsi.com", role: "ADMIN" });
+    expect((req as any).user).toEqual({ userId: "idp-sub-123", email: "+911234567890", role: "MEMBER" });
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it("JIT-creates a MEMBER user when email is unknown", async () => {
-    const newUser = { id: "new-id-99", email: "new@nsi.com", name: "New Person", role: "MEMBER" as const, password: "", createdAt: new Date(), updatedAt: new Date() };
+  it("accepts a DISTRIBUTOR token (morning-call attendees must get in)", async () => {
     vi.mocked(jwtVerify).mockResolvedValueOnce({
-      payload: { realm: "STAFF", email: "new@nsi.com", name: "New Person" },
-      protectedHeader: { alg: "RS256" },
-    } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
-    vi.mocked(prisma.user.create).mockResolvedValueOnce(newUser);
-
-    const req = mockReq({ authHeader: "Bearer idp.token.here" });
-    const { res, statusMock } = mockRes();
-    const next = mockNext();
-
-    await requireAuth(req, res, next);
-
-    expect(statusMock).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalledOnce();
-    expect((req as any).user).toEqual({ userId: "new-id-99", email: "new@nsi.com", role: "MEMBER" });
-    expect(prisma.user.create).toHaveBeenCalledWith({
-      data: { email: "new@nsi.com", name: "New Person", role: "MEMBER", password: "" },
-    });
-  });
-
-  it("JIT-create uses email as name fallback when token has no name claim", async () => {
-    const newUser = { id: "x", email: "noname@nsi.com", name: "noname@nsi.com", role: "MEMBER" as const, password: "", createdAt: new Date(), updatedAt: new Date() };
-    vi.mocked(jwtVerify).mockResolvedValueOnce({
-      payload: { realm: "STAFF", email: "noname@nsi.com" },
-      protectedHeader: { alg: "RS256" },
-    } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
-    vi.mocked(prisma.user.create).mockResolvedValueOnce(newUser);
-
-    const req = mockReq({ authHeader: "Bearer token" });
-    const { res } = mockRes();
-    const next = mockNext();
-
-    await requireAuth(req, res, next);
-
-    expect(prisma.user.create).toHaveBeenCalledWith({
-      data: { email: "noname@nsi.com", name: "noname@nsi.com", role: "MEMBER", password: "" },
-    });
-  });
-
-  it("never modifies an existing user (read-then-create only)", async () => {
-    vi.mocked(jwtVerify).mockResolvedValueOnce({
-      payload: { realm: "STAFF", email: "staff@nsi.com" },
-      protectedHeader: { alg: "RS256" },
-    } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(EXISTING_USER);
-
-    const req = mockReq({ authHeader: "Bearer token" });
-    await requireAuth(req, mockRes().res, mockNext());
-
-    expect(prisma.user.create).not.toHaveBeenCalled();
-  });
-
-  it("rejects a DISTRIBUTOR realm token with 401", async () => {
-    vi.mocked(jwtVerify).mockResolvedValueOnce({
-      payload: { realm: "DISTRIBUTOR", email: "dist@nsi.com" },
+      payload: { sub: "dist-sub-456", realm: "DISTRIBUTOR", phone: "+919876543210", platformRole: "MEMBER" },
       protectedHeader: { alg: "RS256" },
     } as any);
 
@@ -252,9 +190,57 @@ describe("requireAuth — idp mode (AUTH_MODE=idp)", () => {
 
     await requireAuth(req, res, next);
 
+    expect(statusMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+    expect((req as any).user).toMatchObject({ userId: "dist-sub-456", role: "MEMBER" });
+  });
+
+  it("maps platformRole SUPER_ADMIN → local ADMIN role", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: { sub: "sir-sub-1", realm: "STAFF", phone: "+910000000001", platformRole: "SUPER_ADMIN" },
+      protectedHeader: { alg: "RS256" },
+    } as any);
+
+    const req = mockReq({ authHeader: "Bearer super.admin.token" });
+    const { res, statusMock } = mockRes();
+    const next = mockNext();
+
+    await requireAuth(req, res, next);
+
+    expect(statusMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+    expect((req as any).user).toMatchObject({ role: "ADMIN" });
+  });
+
+  it("uses sub as email fallback when phone claim is absent", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: { sub: "no-phone-sub", realm: "STAFF", platformRole: "MEMBER" },
+      protectedHeader: { alg: "RS256" },
+    } as any);
+
+    const req = mockReq({ authHeader: "Bearer token" });
+    const { res } = mockRes();
+    const next = mockNext();
+
+    await requireAuth(req, res, next);
+
+    expect((req as any).user).toMatchObject({ userId: "no-phone-sub", email: "no-phone-sub" });
+  });
+
+  it("rejects an unknown realm with 401", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: { sub: "x", realm: "UNKNOWN_REALM", platformRole: "MEMBER" },
+      protectedHeader: { alg: "RS256" },
+    } as any);
+
+    const req = mockReq({ authHeader: "Bearer bad.realm.token" });
+    const { res, statusMock } = mockRes();
+    const next = mockNext();
+
+    await requireAuth(req, res, next);
+
     expect(statusMock).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
   it("returns 401 when jose throws (invalid/expired token)", async () => {

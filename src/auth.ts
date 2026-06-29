@@ -265,32 +265,29 @@ export async function verifyIdpToken(token: string): Promise<AuthUser> {
 
   const { payload } = await jwtVerify<{
     realm?: string;
-    email?: string;
-    name?: string;
+    phone?: string;
+    platformRole?: string;
   }>(token, getJWKS(), {
     issuer,
     audience,
     algorithms: ["RS256"],
   });
 
-  if (payload.realm !== "STAFF") {
-    throw new Error("Forbidden: STAFF realm required");
+  // Accept both STAFF (dashboard admins) and DISTRIBUTOR (morning-call attendees)
+  if (payload.realm !== "STAFF" && payload.realm !== "DISTRIBUTOR") {
+    throw new Error("Forbidden: STAFF or DISTRIBUTOR realm required");
   }
 
-  const email = payload.email;
-  if (!email) throw new Error("Token missing email claim");
+  const sub = payload.sub;
+  if (!sub) throw new Error("Token missing sub claim");
 
-  let user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        name: payload.name ?? email,
-        role: "MEMBER",
-        password: "",
-      },
-    });
-  }
+  // SUPER_ADMIN gets livemeet ADMIN; everyone else is MEMBER
+  const role: "ADMIN" | "MEMBER" =
+    payload.platformRole === "SUPER_ADMIN" ? "ADMIN" : "MEMBER";
 
-  return { userId: user.id, email: user.email, role: user.role };
+  return {
+    userId: sub,
+    email: (payload.phone as string | undefined) ?? sub,
+    role,
+  };
 }
