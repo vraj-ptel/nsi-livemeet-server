@@ -84,14 +84,15 @@ router.post("/logout", async (req, res) => {
 });
 
 router.get("/me", requireAuth, async (req, res) => {
-  const { userId } = (req as typeof req & { user: { userId: string } }).user;
+  const authUser = (req as typeof req & { user: { userId: string; email: string; role: string } }).user;
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: authUser.userId },
     select: { id: true, email: true, name: true, role: true },
   });
   if (!user) {
-    clearAuthCookies(res);
-    return res.status(404).json({ error: "User not found" });
+    // IdP mode: no local User row (userId = IdP sub). Return token claims directly.
+    res.json({ user: { id: authUser.userId, email: authUser.email, name: authUser.email, role: authUser.role } });
+    return;
   }
   res.json({ user });
 });

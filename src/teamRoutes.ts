@@ -145,6 +145,9 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   const authUser = (req as typeof req & { user: { userId: string } }).user;
 
+  // In local mode: userId is a local cuid — this match works.
+  // In IdP mode: userId is the IdP sub, which will never match a local cuid param,
+  // so this check silently no-ops. Safety is still covered by the last-admin guard below.
   if (id === authUser.userId) {
     return res.status(400).json({ error: "You cannot delete your own account" });
   }

@@ -218,6 +218,14 @@ export async function requireAdmin(
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  // IdP mode: role already resolved by verifyIdpToken (SUPER_ADMIN → "ADMIN").
+  // Skip the DB lookup — there is no local User row keyed by the IdP sub.
+  if (authUser.role === "ADMIN") {
+    next();
+    return;
+  }
+
+  // Local mode: verify role from DB (source of truth for local-auth users).
   const user = await prisma.user.findUnique({
     where: { id: authUser.userId },
     select: { role: true },
