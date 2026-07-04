@@ -212,6 +212,52 @@ describe("requireAuth — idp mode (AUTH_MODE=idp)", () => {
     expect((req as any).user).toMatchObject({ role: "ADMIN" });
   });
 
+  it("maps access[ZOOM, ADMIN] → local ADMIN when platformRole is NONE", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: {
+        sub: "zoom-admin-1",
+        realm: "STAFF",
+        phone: "+910000000002",
+        platformRole: "NONE",
+        access: [{ product: "ZOOM", role: "ADMIN" }],
+      },
+      protectedHeader: { alg: "RS256" },
+    } as any);
+
+    const req = mockReq({ authHeader: "Bearer zoom.admin.token" });
+    const { res, statusMock } = mockRes();
+    const next = mockNext();
+
+    await requireAuth(req, res, next);
+
+    expect(statusMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+    expect((req as any).user).toMatchObject({ role: "ADMIN" });
+  });
+
+  it("does not grant ADMIN for access[SALES, ADMIN] without ZOOM", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: {
+        sub: "sales-admin-1",
+        realm: "STAFF",
+        phone: "+910000000003",
+        platformRole: "NONE",
+        access: [{ product: "SALES", role: "ADMIN" }],
+      },
+      protectedHeader: { alg: "RS256" },
+    } as any);
+
+    const req = mockReq({ authHeader: "Bearer sales.admin.token" });
+    const { res, statusMock } = mockRes();
+    const next = mockNext();
+
+    await requireAuth(req, res, next);
+
+    expect(statusMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+    expect((req as any).user).toMatchObject({ role: "MEMBER" });
+  });
+
   it("uses sub as email fallback when phone claim is absent", async () => {
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { sub: "no-phone-sub", realm: "STAFF", platformRole: "MEMBER" },

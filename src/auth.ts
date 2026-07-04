@@ -275,6 +275,7 @@ export async function verifyIdpToken(token: string): Promise<AuthUser> {
     realm?: string;
     phone?: string;
     platformRole?: string;
+    access?: { product: string; role: string }[];
   }>(token, getJWKS(), {
     issuer,
     audience,
@@ -289,9 +290,12 @@ export async function verifyIdpToken(token: string): Promise<AuthUser> {
   const sub = payload.sub;
   if (!sub) throw new Error("Token missing sub claim");
 
-  // SUPER_ADMIN gets livemeet ADMIN; everyone else is MEMBER
+  // SUPER_ADMIN or product-scoped Zoom admin → livemeet ADMIN
+  const isZoomAdmin =
+    Array.isArray(payload.access) &&
+    payload.access.some((a) => a.product === "ZOOM" && a.role === "ADMIN");
   const role: "ADMIN" | "MEMBER" =
-    payload.platformRole === "SUPER_ADMIN" ? "ADMIN" : "MEMBER";
+    payload.platformRole === "SUPER_ADMIN" || isZoomAdmin ? "ADMIN" : "MEMBER";
 
   return {
     userId: sub,
