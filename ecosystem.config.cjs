@@ -1,13 +1,13 @@
 /**
  * PM2 ecosystem config for NSI LiveMeet API.
- * Default deploy path: /var/www/nsi-livemeet-server (change cwd if yours differs).
+ * Deploy path: /var/www/livemeet-server (change cwd if yours differs).
  */
 module.exports = {
   apps: [
     {
-      name: "nsi-livemeet-api",
+      name: "livemeet-backend",
       script: "dist/index.js",
-      cwd: "/var/www/nsi-livemeet-server",
+      cwd: "/var/www/livemeet-server",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,

@@ -671,12 +671,27 @@ router.post("/meetings/:meetingId/registrants/sync", async (req, res) => {
     });
   } catch (err: any) {
     const status = err.response?.status;
+    const zoomCode = err.response?.data?.code;
     const zoomMessage =
       err.response?.data?.message ?? err.response?.data?.code ?? err.message;
     console.error(
       `[SYNC] Failed to fetch registrants for ${meetingId}:`,
       err.response?.data ?? err.message
     );
+
+    // Zoom deletes instant meetings once they end.
+    if (zoomCode === 3001) {
+      return res.status(404).json({
+        error:
+          "This meeting no longer exists on Zoom (instant meetings are removed after they end). Attendance already recorded is unaffected.",
+      });
+    }
+    if (typeof zoomMessage === "string" && /registration has not been enabled/i.test(zoomMessage)) {
+      return res.status(400).json({
+        error:
+          "Registration is not enabled for this meeting, so there are no registrants to fetch. Everyone who joins still appears as a guest.",
+      });
+    }
 
     if (status === 404) {
       return res.status(404).json({
