@@ -77,31 +77,110 @@ export async function seedSessionsForMeeting(
 
 const SESSION_MATCH_MS = 45 * 60 * 1000;
 
-function resolveOccurrenceStatus(
-  meetingId: string,
-  occurrenceId: string | null | undefined,
-  startTime: string,
-  dbSessions: {
-    meetingId: string;
-    occurrenceId: string | null;
-    scheduledStart: Date;
-    status: string;
-  }[]
-) {
-  const exact = dbSessions.find(
-    (s) =>
-      s.meetingId === meetingId &&
-      (s.occurrenceId ?? "") === (occurrenceId ?? "")
-  );
-  if (exact) return exact.status;
+export type UpcomingOccurrence = {
+  id: string;
+  uuid: string;
+  occurrenceId: string | null;
+  topic: string;
+  startTime: string;
+  duration: number;
+  joinUrl: string;
+  status: string;
+};
 
-  const startMs = new Date(startTime).getTime();
-  const near = dbSessions.find(
+type DbSessionForMerge = {
+  id: string;
+  meetingId: string;
+  occurrenceId: string | null;
+  scheduledStart: Date;
+  duration: number;
+  status: string;
+  meeting: { topic: string; joinUrl: string | null };
+};
+
+/**
+ * Pick the DB session a Zoom list entry refers to. Recurring occurrences match
+ * by occurrenceId; everything else by scheduled time. One-time meetings that are
+ * reused daily share occurrenceId=null across many sessions, so a null-id match
+ * alone would pick an arbitrary old session.
+ */
+function matchSession(
+  occ: { id: string; occurrenceId?: string | null; startTime: string },
+  dbSessions: DbSessionForMerge[]
+) {
+  if (occ.occurrenceId) {
+    const exact = dbSessions.find(
+      (s) => s.meetingId === occ.id && s.occurrenceId === occ.occurrenceId
+    );
+    if (exact) return exact;
+  }
+
+  const startMs = new Date(occ.startTime).getTime();
+  const near = dbSessions.filter(
     (s) =>
-      s.meetingId === meetingId &&
+      s.meetingId === occ.id &&
       Math.abs(s.scheduledStart.getTime() - startMs) < SESSION_MATCH_MS
   );
-  return near?.status ?? null;
+  return near.find((s) => s.status === "LIVE") ?? near[0] ?? null;
+}
+
+/**
+ * Merge Zoom's scheduled list with LIVE/ENDED sessions from the DB. Any DB
+ * session not matched to a Zoom entry is added on its own — this is how live
+ * sessions of reused one-time meetings (whose Zoom start_time is the original
+ * scheduled date) show up.
+ */
+export function mergeUpcoming(
+  occurrences: {
+    id: string;
+    uuid: string;
+    occurrenceId?: string | null;
+    topic: string;
+    startTime: string;
+    duration: number;
+    joinUrl: string;
+  }[],
+  dbSessions: DbSessionForMerge[]
+): UpcomingOccurrence[] {
+  const matched = new Set<string>();
+
+  const result: UpcomingOccurrence[] = occurrences.map((occ) => {
+    const session = matchSession(occ, dbSessions);
+    if (session) matched.add(session.id);
+    return {
+      id: occ.id,
+      uuid: occ.uuid,
+      occurrenceId: occ.occurrenceId ?? null,
+      topic: occ.topic,
+      startTime: occ.startTime,
+      duration: occ.duration,
+      joinUrl: occ.joinUrl,
+      status: session?.status ?? "SCHEDULED",
+    };
+  });
+
+  for (const session of dbSessions) {
+    if (matched.has(session.id)) continue;
+    result.push({
+      id: session.meetingId,
+      uuid: session.occurrenceId ?? session.meetingId,
+      occurrenceId: session.occurrenceId,
+      topic: session.meeting.topic,
+      startTime: session.scheduledStart.toISOString(),
+      duration: session.duration,
+      joinUrl: session.meeting.joinUrl ?? "",
+      status: session.status,
+    });
+  }
+
+  // LIVE meetings first, then by start time
+  result.sort((a, b) => {
+    if (a.status === "LIVE" && b.status !== "LIVE") return -1;
+    if (b.status === "LIVE" && a.status !== "LIVE") return 1;
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+  });
+
+  return result;
 }
 
 // ── GET /api/meetings/upcoming ────────────────────────────────────────────────
@@ -139,62 +218,7 @@ router.get("/meetings/upcoming", async (req, res) => {
       },
     });
 
-    type OccurrenceResult = {
-      id: string;
-      uuid: string;
-      occurrenceId: string | null;
-      topic: string;
-      startTime: string;
-      duration: number;
-      joinUrl: string;
-      status: string;
-    };
-
-    const result: OccurrenceResult[] = occurrences.map((occ) => ({
-      id: occ.id,
-      uuid: occ.uuid,
-      occurrenceId: occ.occurrenceId ?? null,
-      topic: occ.topic,
-      startTime: occ.startTime,
-      duration: occ.duration,
-      joinUrl: occ.joinUrl,
-      status:
-        resolveOccurrenceStatus(
-          occ.id,
-          occ.occurrenceId,
-          occ.startTime,
-          dbSessions
-        ) ?? "SCHEDULED",
-    }));
-
-    // Inject LIVE/ENDED sessions missing from Zoom list (e.g. currently live occurrence)
-    const resultKeys = new Set(
-      result.map((r) => `${r.id}:${r.occurrenceId ?? ""}`)
-    );
-
-    for (const session of dbSessions) {
-      const key = `${session.meetingId}:${session.occurrenceId ?? ""}`;
-      if (resultKeys.has(key)) continue;
-
-      result.push({
-        id: session.meetingId,
-        uuid: session.occurrenceId ?? session.meetingId,
-        occurrenceId: session.occurrenceId,
-        topic: session.meeting.topic,
-        startTime: session.scheduledStart.toISOString(),
-        duration: session.duration,
-        joinUrl: session.meeting.joinUrl ?? "",
-        status: session.status,
-      });
-      resultKeys.add(key);
-    }
-
-    // LIVE meetings first, then by start time
-    result.sort((a, b) => {
-      if (a.status === "LIVE" && b.status !== "LIVE") return -1;
-      if (b.status === "LIVE" && a.status !== "LIVE") return 1;
-      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-    });
+    const result = mergeUpcoming(occurrences, dbSessions);
 
     res.json(result);
   } catch (err: any) {
