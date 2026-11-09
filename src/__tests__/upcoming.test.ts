@@ -33,7 +33,12 @@ describe("mergeUpcoming", () => {
 
     const result = mergeUpcoming(zoom, db);
 
-    expect(result[0]).toMatchObject({ id: "83708978922", status: "LIVE", startTime: "2026-10-13T02:00:03.000Z" });
+    expect(result[0]).toMatchObject({
+      id: "83708978922",
+      status: "LIVE",
+      startTime: "2026-10-13T02:00:03.000Z",
+      sessionId: "live",
+    });
     // The stale Zoom entry must not borrow a status from an unrelated session.
     expect(result.find((r) => r.startTime === "2026-09-19T08:30:00Z")?.status).toBe("SCHEDULED");
     expect(result.filter((r) => r.status === "ENDED")).toHaveLength(1);

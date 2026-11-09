@@ -4,6 +4,7 @@ import cors from "cors";
 import crypto from "crypto";
 import http from "http";
 import cookieParser from "cookie-parser";
+import compression from "compression";
 import { Server as SocketIOServer } from "socket.io";
 import { prisma } from "./db";
 import { createWebhookHandler } from "./webhook";
@@ -35,6 +36,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(compression());
 app.use(cookieParser());
 app.use(
   express.json({
@@ -89,6 +91,13 @@ app.use("/api/team", teamRouter);
 app.use("/api", apiRouter);
 
 app.get("/", (_req, res) => res.send("NSI Live Meet Server ✓"));
+
+// Any route error ends here instead of leaving the request hanging.
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[HTTP] ${req.method} ${req.originalUrl} failed:`, err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: "Something went wrong on our side. Please try again." });
+});
 
 // ── Socket.IO (JWT required) ────────────────────────────────────────────────
 attachSocketAuth(io);

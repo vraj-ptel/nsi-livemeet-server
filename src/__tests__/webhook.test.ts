@@ -10,7 +10,7 @@ vi.mock("../db", () => {
     `${w.sessionId_email.sessionId}|${w.sessionId_email.email}`;
   return {
     prisma: {
-      meeting: { upsert: vi.fn() },
+      meeting: { upsert: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) },
       meetingSession: {
         findFirst: vi.fn(),
         create: vi.fn(),
@@ -165,5 +165,18 @@ describe("event handling", () => {
     vi.mocked(prisma.meetingSession.findFirst).mockRejectedValue(new Error("db down"));
     const res = await send("meeting.ended", { id: 1, uuid: "u1" });
     expect(res.status).toHaveBeenCalledWith(500);
+  });
+});
+
+describe("waiting for the host", () => {
+  it("remembers that people waited, at most once per meeting every 5 minutes", async () => {
+    vi.mocked(prisma.meeting.updateMany).mockClear();
+    await send("meeting.participant_jbh_waiting", { id: 777, uuid: "w1" });
+    await send("meeting.participant_jbh_waiting", { id: 777, uuid: "w1" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(prisma.meeting.updateMany).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(prisma.meeting.updateMany).mock.calls[0]![0]).toMatchObject({
+      where: { id: "777" },
+    });
   });
 });

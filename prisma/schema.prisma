@@ -62,6 +62,7 @@ model Meeting {
   joinUrl   String?
   hostId    String?                 // Zoom host_id from webhooks
   hostEmail String?                 // Zoom host email from webhooks
+  lastWaitingAt DateTime?           // last time someone waited for the host to start it
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -90,6 +91,7 @@ model MeetingSession {
   @@unique([meetingId, occurrenceId])
   @@index([uuid])
   @@index([meetingId, status])
+  @@index([scheduledStart])
 }
 
 // ── Registrant — one per user who registered for the meeting series ───────────
@@ -109,6 +111,7 @@ model Registrant {
   meeting Meeting @relation(fields: [meetingId], references: [id])
 
   @@unique([meetingId, email])
+  @@index([email])
 }
 
 // ── Participant — one row per person per session ──────────────────────────────
@@ -130,4 +133,5 @@ model Participant {
   session MeetingSession @relation(fields: [sessionId], references: [id])
 
   @@unique([sessionId, email])
+  @@index([email])
 }

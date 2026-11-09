@@ -6,6 +6,7 @@ import {
   normalizeZoomRegistrant,
   upsertRegistrant,
 } from "./registrants";
+import { markWebhookReceived } from "./health";
 import fs from "fs";
 import path from "path";
 
@@ -32,6 +33,25 @@ const IGNORED_EVENTS = new Set([
 interface JoinSession {
   joinTime: string;
   leaveTime: string | null;
+}
+
+// ── Health signals for /api/status ───────────────────────────────────────────
+const WAITING_WRITE_INTERVAL_MS = 5 * 60 * 1000;
+const lastWaitingWrite = new Map<string, number>();
+
+/**
+ * Someone is waiting for the host to start the meeting. Remember it (at most
+ * one write per meeting every 5 minutes) so the app can say "people waited but
+ * the meeting was never started on this Zoom account".
+ */
+async function recordWaiting(meetingId: string, at: Date) {
+  const last = lastWaitingWrite.get(meetingId) ?? 0;
+  if (at.getTime() - last < WAITING_WRITE_INTERVAL_MS) return;
+  lastWaitingWrite.set(meetingId, at.getTime());
+  await prisma.meeting.updateMany({
+    where: { id: meetingId },
+    data: { lastWaitingAt: at },
+  });
 }
 
 function savePayload(event: string, payload: unknown) {
@@ -154,8 +174,17 @@ export function createWebhookHandler(io: SocketIOServer) {
     };
 
     savePayload(event, payload);
+    const receivedAt = markWebhookReceived();
 
     if (IGNORED_EVENTS.has(event)) {
+      if (event === "meeting.participant_jbh_waiting") {
+        const waitingId = payload?.object?.id?.toString();
+        if (waitingId) {
+          recordWaiting(waitingId, receivedAt).catch((err) =>
+            console.error("[WEBHOOK] recordWaiting failed:", err?.message ?? err)
+          );
+        }
+      }
       res.status(200).send();
       return;
     }
@@ -382,8 +411,9 @@ export function createWebhookHandler(io: SocketIOServer) {
           });
 
           if (!session) {
-            console.warn(
-              `[JOIN] No LIVE session found for meeting ${meetingId} uuid=${meetingUuid}. Participant ${email} skipped.`
+            // Zoom can deliver a few joins after meeting.ended; nothing to record.
+            console.log(
+              `[JOIN] Ignored late join for meeting ${meetingId} uuid=${meetingUuid} (session not live): ${email}`
             );
             break;
           }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { UserRole } from "@prisma/client";
 import { prisma } from "./db";
+import { asyncRoute } from "./http";
 import { requireAuth, requireAdmin } from "./auth";
 
 const router = Router();
@@ -34,15 +35,15 @@ function isValidEmail(email: string) {
 }
 
 // GET /api/team
-router.get("/", async (_req, res) => {
+router.get("/", asyncRoute(async (_req, res) => {
   const users = await prisma.user.findMany({
     orderBy: [{ role: "asc" }, { createdAt: "asc" }],
   });
   res.json({ members: users.map(publicUser) });
-});
+}));
 
 // POST /api/team
-router.post("/", async (req, res) => {
+router.post("/", asyncRoute(async (req, res) => {
   const { email, name, role } = req.body as {
     email?: string;
     name?: string;
@@ -75,10 +76,10 @@ router.post("/", async (req, res) => {
   });
 
   res.status(201).json({ member: publicUser(user) });
-});
+}));
 
 // PATCH /api/team/:id
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", asyncRoute<{ id: string }>(async (req, res) => {
   const { id } = req.params;
   const { email, name, role } = req.body as {
     email?: string;
@@ -138,10 +139,10 @@ router.patch("/:id", async (req, res) => {
   const user = await prisma.user.update({ where: { id }, data });
 
   res.json({ member: publicUser(user) });
-});
+}));
 
 // DELETE /api/team/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncRoute<{ id: string }>(async (req, res) => {
   const { id } = req.params;
   const authUser = (req as typeof req & { user: { userId: string } }).user;
 
@@ -166,6 +167,6 @@ router.delete("/:id", async (req, res) => {
 
   await prisma.user.delete({ where: { id } });
   res.json({ success: true });
-});
+}));
 
 export default router;

@@ -37,93 +37,92 @@ export interface ZoomOccurrence {
   type: number;
 }
 
-export async function getUpcomingMeetings(): Promise<ZoomOccurrence[]> {
-  const token = await getZoomToken();
+/** Run `fn` over `items` with at most `limit` calls in flight. */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]!);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
-  // Get the flat list of scheduled meetings
-  const response = await axios.get("https://api.zoom.us/v2/users/me/meetings", {
-    headers: { Authorization: `Bearer ${token}` },
-    params: { type: "scheduled", page_size: 300 },
+async function listScheduledMeetings(token: string): Promise<any[]> {
+  const meetings: any[] = [];
+  let nextPageToken: string | undefined;
+  do {
+    const response = await axios.get("https://api.zoom.us/v2/users/me/meetings", {
+      headers: { Authorization: `Bearer ${token}` },
+      params: {
+        type: "scheduled",
+        page_size: 300,
+        ...(nextPageToken ? { next_page_token: nextPageToken } : {}),
+      },
+    });
+    meetings.push(...(response.data.meetings ?? []));
+    nextPageToken = response.data.next_page_token || undefined;
+  } while (nextPageToken);
+  return meetings;
+}
+
+async function occurrencesFor(m: any, token: string): Promise<ZoomOccurrence[]> {
+  const single = (): ZoomOccurrence => ({
+    id: m.id.toString(),
+    uuid: m.uuid ?? m.id.toString(),
+    topic: m.topic,
+    startTime: m.start_time,
+    duration: m.duration,
+    joinUrl: m.join_url,
+    type: m.type,
   });
 
-  const results: ZoomOccurrence[] = [];
+  if (m.type !== 8) return [single()];
 
-  for (const m of response.data.meetings ?? []) {
-    if (m.type === 8) {
-      // ── Recurring meeting ──────────────────────────────────────────────────
-      // The List Meetings API does NOT include occurrences in the response.
-      // We must call GET /meetings/{id} separately to get all occurrences.
-      try {
-        const detail = await axios.get(
-          `https://api.zoom.us/v2/meetings/${m.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { show_previous_occurrences: false },
-          }
-        );
-
-        const occurrences: any[] = detail.data.occurrences ?? [];
-        console.log(
-          `[ZOOM] Recurring meeting ${m.id} "${m.topic}" — ${occurrences.length} occurrence(s)`
-        );
-
-        if (occurrences.length === 0) {
-          // No upcoming occurrences — still show with parent-level time
-          results.push({
-            id: m.id.toString(),
-            uuid: m.uuid ?? m.id.toString(),
-            topic: detail.data.topic ?? m.topic,
-            startTime: m.start_time,
-            duration: m.duration,
-            joinUrl: detail.data.join_url ?? m.join_url,
-            type: m.type,
-          });
-        } else {
-          for (const occ of occurrences) {
-            if (occ.status === "deleted") continue; // skip deleted occurrences
-            results.push({
-              id: m.id.toString(),
-              uuid: occ.occurrence_id,      // unique per occurrence — LIVE detection key
-              occurrenceId: occ.occurrence_id,
-              topic: detail.data.topic ?? m.topic,
-              startTime: occ.start_time,
-              duration: occ.duration ?? m.duration,
-              joinUrl: detail.data.join_url ?? m.join_url,
-              type: m.type,
-            });
-          }
-        }
-      } catch (err: any) {
-        console.error(
-          `[ZOOM] Failed to fetch occurrences for meeting ${m.id}:`,
-          err.response?.data ?? err.message
-        );
-        // Fallback: show as single entry with list-level data
-        results.push({
-          id: m.id.toString(),
-          uuid: m.uuid ?? m.id.toString(),
-          topic: m.topic,
-          startTime: m.start_time,
-          duration: m.duration,
-          joinUrl: m.join_url,
-          type: m.type,
-        });
-      }
-    } else {
-      // ── One-time meeting ───────────────────────────────────────────────────
-      results.push({
-        id: m.id.toString(),
-        uuid: m.uuid ?? m.id.toString(),
-        topic: m.topic,
-        startTime: m.start_time,
-        duration: m.duration,
-        joinUrl: m.join_url,
-        type: m.type,
-      });
+  // Recurring: the list API has no occurrences, so fetch the meeting itself.
+  try {
+    const detail = await axios.get(`https://api.zoom.us/v2/meetings/${m.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { show_previous_occurrences: false },
+    });
+    const occurrences: any[] = detail.data.occurrences ?? [];
+    if (occurrences.length === 0) {
+      return [{ ...single(), topic: detail.data.topic ?? m.topic, joinUrl: detail.data.join_url ?? m.join_url }];
     }
+    return occurrences
+      .filter((occ) => occ.status !== "deleted")
+      .map((occ) => ({
+        id: m.id.toString(),
+        uuid: occ.occurrence_id, // unique per occurrence — LIVE detection key
+        occurrenceId: occ.occurrence_id,
+        topic: detail.data.topic ?? m.topic,
+        startTime: occ.start_time,
+        duration: occ.duration ?? m.duration,
+        joinUrl: detail.data.join_url ?? m.join_url,
+        type: m.type,
+      }));
+  } catch (err: any) {
+    console.error(
+      `[ZOOM] Failed to fetch occurrences for meeting ${m.id}:`,
+      err.response?.data ?? err.message
+    );
+    return [single()];
   }
+}
 
-  return results;
+/** Every scheduled meeting on the account, recurring ones expanded into occurrences. */
+export async function getUpcomingMeetings(): Promise<ZoomOccurrence[]> {
+  const token = await getZoomToken();
+  const meetings = await listScheduledMeetings(token);
+  const perMeeting = await mapLimit(meetings, 5, (m) => occurrencesFor(m, token));
+  return perMeeting.flat();
 }
 
 export interface ZoomMeetingDetails {

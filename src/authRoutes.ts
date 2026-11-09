@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { prisma } from "./db";
+import { asyncRoute } from "./http";
 import {
   clearAuthCookies,
   setAccessCookie,
@@ -26,7 +27,7 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Please try again later." },
 });
 
-router.post("/login", loginLimiter, async (req, res) => {
+router.post("/login", loginLimiter, asyncRoute(async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
 
   if (!email || !password) {
@@ -51,9 +52,9 @@ router.post("/login", loginLimiter, async (req, res) => {
       role: user.role,
     },
   });
-});
+}));
 
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", asyncRoute(async (req, res) => {
   const refreshToken = extractRefreshToken(req);
   if (!refreshToken) {
     clearAuthCookies(res);
@@ -77,13 +78,13 @@ router.post("/refresh", async (req, res) => {
       role: rotated.user.role,
     },
   });
-});
+}));
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", asyncRoute(async (req, res) => {
   await logoutUser(req, res);
-});
+}));
 
-router.get("/me", requireAuth, async (req, res) => {
+router.get("/me", requireAuth, asyncRoute(async (req, res) => {
   const authUser = (req as typeof req & { user: { userId: string; email: string; role: string } }).user;
   const user = await prisma.user.findUnique({
     where: { id: authUser.userId },
@@ -95,6 +96,6 @@ router.get("/me", requireAuth, async (req, res) => {
     return;
   }
   res.json({ user });
-});
+}));
 
 export default router;
