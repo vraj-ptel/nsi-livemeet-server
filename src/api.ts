@@ -351,6 +351,11 @@ router.get("/meetings/history", asyncRoute(async (req, res) => {
     },
   });
 
+  // People per session that ran (sessions not held yet have none).
+  const counts = await peopleCounts(
+    meetings.flatMap((m) => m.sessions.filter((s) => s.status !== "SCHEDULED").map((s) => s.id))
+  );
+
   res.json(
     meetings.map((m) => ({
       id: m.id,
@@ -367,6 +372,7 @@ router.get("/meetings/history", asyncRoute(async (req, res) => {
         duration: s.duration,
         status: s.status,
         endTime: s.endTime,
+        people: s.status === "SCHEDULED" ? null : (counts.get(s.id) ?? 0),
       })),
     }))
   );
